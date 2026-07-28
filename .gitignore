@@ -38,3 +38,8 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# decompiled minecraft sources
+# Proprietary Mojang code. Never commit. Regenerate with ./gradlew genSources.
+
+.minecraft-src/
