@@ -3,7 +3,7 @@
 	"package": "io.github.gregj.mobconduit.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"ExampleMixin"
+		"EndCrystalMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -1,9 +1,155 @@
 # Mob Conduit
 
-## Setup
+A Fabric mod for Minecraft **26.2** that adds a player-built multiblock which stops hostile mobs
+spawning around it — built entirely from vanilla blocks, with no new items, blocks, or recipes.
 
-For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
+**Server-side only.** Players join with an unmodified vanilla client and install nothing. The mod
+registers no new content of any kind, so registry sync is untouched and vanilla clients connect
+normally.
+
+## What it looks like
+
+The structure reuses the vanilla conduit's frame geometry, so it is a shape players already know:
+
+- **Centre** — a vanilla end crystal sitting on an obsidian block. The crystal's own idle
+  animation is the "powered on" indicator, which is why no client mod is needed to see the state.
+- **Frame** — three orthogonal 5×5 rings of a configurable block (default
+  `minecraft:netherite_block`), the same arrangement as a prismarine conduit. 42 positions in
+  total.
+- Frame block count sets the radius, using vanilla's own thresholds.
+
+Unlike the vanilla conduit, there is **no water requirement** — it works in open air.
+
+The crystal is destructible and the explosion is deliberate. Blow it up and the conduit shuts
+off; place a new crystal on the obsidian to bring it back.
+
+## What it does
+
+- Blocks **natural** hostile spawning inside its radius. Monster spawners, trial spawners, spawn
+  eggs, breeding and `/summon` all keep working, so mob farms inside the radius are unaffected.
+- Passive and neutral mobs are never touched.
+- On activation, hostiles already inside are erased — a light block appears over each one, it
+  vanishes in a burst of soul fire, and the light fades out. Staged across ticks so a large
+  sweep does not stutter.
+- With `forcefield` on (the default), hostiles that wander in afterwards get the same treatment.
+
+Boss mobs, named mobs, and anything flagged persistent are exempt.
+
+## Radius
+
+Radius scales linearly with frame block count, between the two thresholds:
+
+| Frame blocks | Radius |
+|---|---|
+| below 16 | inactive |
+| 16 | 64 |
+| 42 (full frame) | 128 |
+
+Both thresholds match vanilla's conduit (`MIN_ACTIVE_SIZE` and `MIN_KILL_SIZE`). The radius is
+spherical, measured from the crystal.
+
+> **Note on cost.** At the netherite default, a full 42-block frame is roughly 1,512 ancient
+> debris. This is intentional — it is meant to be an endgame answer to base spawn-proofing.
+> Server owners who want it achievable can set `frame_block` to `minecraft:ancient_debris` for
+> the same look at a fraction of the cost.
+
+## Install
+
+1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3+ for Minecraft 26.2 on your server.
+2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.156.0+26.2 in `mods/`.
+3. Put `mob-conduit-1.0.0.jar` in `mods/`.
+4. Start the server. Requires **Java 25**.
+
+Nothing is installed on the client.
+
+## Commands
+
+All require permission level 2 (gamemaster).
+
+| Command | Effect |
+|---|---|
+| `/mobconduit status` | List active conduits and show a live scoreboard sidebar of spawn-guard stats |
+| `/mobconduit status off` | Hide the sidebar |
+| `/mobconduit sweep` | Re-run the erasure across every conduit in this dimension |
+| `/mobconduit reload` | Re-read the config and re-validate every conduit |
+| `/mobconduit build <pos>` | Erect a full frame, obsidian and crystal at `<pos>` — a testing aid |
+
+The sidebar reports natural hostile spawn attempts, how many were suppressed, how many fell
+outside every radius, and how many were seen while no conduit was active.
+
+## Configuration
+
+`config/mob-conduit.json`, created on first run. Everything is re-readable at runtime with
+`/mobconduit reload` — no restart.
+
+### Structure
+
+| Key | Default | Notes |
+|---|---|---|
+| `frame_block` | `minecraft:netherite_block` | Any vanilla block id. Validated at load; falls back to the default if it does not resolve. |
+| `radius_min` | `64` | Radius at `frame_threshold_min`. |
+| `radius_max` | `128` | Radius at `frame_threshold_max`. 128 blocks is 8 chunks. |
+| `frame_threshold_min` | `16` | Frame blocks needed to activate. |
+| `frame_threshold_max` | `42` | Frame blocks for maximum radius, and the geometric maximum. |
+
+### Behaviour
+
+| Key | Default | Notes |
+|---|---|---|
+| `forcefield` | `true` | Also erase hostiles that wander in, not just those present at activation. |
+| `forcefield_interval_ticks` | `40` | How often each conduit re-sweeps when `forcefield` is on. |
+| `removal_drops` | `false` | Kill instead of discard, so loot and XP drop. See the warning below. |
+| `removal_budget_per_tick` | `32` | Mobs processed per tick during a sweep. |
+| `removal_exempt_types` | wither, ender dragon | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly — extend this for modded bosses. |
+
+### Presentation
+
+| Key | Default | Notes |
+|---|---|---|
+| `activation_sounds` | `true` | Layered `block.beacon.*` and `block.conduit.*` on activate/deactivate. |
+| `ambient_sounds` | `true` | Layered ambient hum every 80 ticks while active. |
+| `light_base_on_activate` | `true` | Swap the obsidian under the crystal for a light block while active, restored when it shuts off. |
+| `removal_particle_count` | `40` | Soul fire burst per erased mob. |
+| `removal_riser_count` | `20` | Soul flames that climb out of the mob. |
+| `removal_riser_speed` | `1.0` | Upward velocity per riser; ~1.0 climbs 10–21 blocks. |
+| `removal_light_enabled` | `true` | Light block over each mob's head as it is erased. |
+| `removal_light_delay_ticks` | `10` | How long the light shows before the mob vanishes. |
+| `removal_light_fade_ticks` | `60` | Fade duration, walked one light level at a time. |
+| `max_concurrent_lights` | `0` | Ceiling on lights in flight. `0` means unlimited. |
+
+> **`removal_drops` and `forcefield` compound.** Separately, `removal_drops` gives a one-off
+> payout when a conduit activates. Together with `forcefield` you have built a permanent mob
+> grinder that streams loot and XP into the sphere indefinitely, and dropped items persist for
+> five minutes. That may be what you want — just know it is a different thing from a one-time
+> activation bonus.
+
+If `radius_max` exceeds the server's simulation distance, a warning is logged at startup:
+unticked chunks do not spawn mobs, so the extra radius does nothing.
+
+## How it works
+
+- **Detection is event-driven.** Nothing ever scans the world looking for conduits. A single
+  Mixin on the end crystal's `tick()` re-validates the frame every 40 ticks, offset by entity id
+  so crystals do not all re-scan on the same tick.
+- **Spawn suppression uses a Fabric API hook, not a Mixin.** `ServerEntityEvents.ALLOW_LOAD`
+  carries the spawn reason and can cancel the load, which covers the whole feature without
+  touching `NaturalSpawner`.
+- **Covered chunks are computed once** at activation and indexed by packed chunk key, so a spawn
+  attempt costs one long lookup rather than a scan over conduits.
+- **State lives in world saved data** keyed by the crystal's position, so active conduits survive
+  a restart. The centre is a vanilla entity, so there is nothing of ours to attach state to.
+
+One Mixin, on `EndCrystal#tick`. That is the entire surface area against Minecraft internals.
+
+## Building from source
+
+```sh
+./gradlew build        # jar lands in build/libs/
+./gradlew runServer    # dev server
+```
+
+Requires JDK 25. Minecraft 26.2 is unobfuscated, so there is no remapping step and no Yarn.
 
 ## License
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+CC0-1.0. See [LICENSE](LICENSE).

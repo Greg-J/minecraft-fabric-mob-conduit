@@ -3,34 +3,20 @@
 	"id": "mob-conduit",
 	"version": "${version}",
 	"name": "Mob Conduit",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "A player-built multiblock that suppresses natural hostile spawning in a radius, built entirely from vanilla blocks. Server-side only; vanilla clients connect unmodified.",
 	"authors": [
-		"Me!"
+		"gregj"
 	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
 	"license": "CC0-1.0",
 	"icon": "assets/mob-conduit/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
 			"io.github.gregj.mobconduit.MobConduit"
-		],
-		"client": [
-			"io.github.gregj.mobconduit.client.MobConduitClient"
-		],
-		"fabric-datagen": [
-			"io.github.gregj.mobconduit.client.MobConduitDataGenerator"
 		]
 	},
 	"mixins": [
-		"mob-conduit.mixins.json",
-		{
-			"config": "mob-conduit.client.mixins.json",
-			"environment": "client"
-		}
+		"mob-conduit.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
