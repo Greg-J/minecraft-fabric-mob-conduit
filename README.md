@@ -233,6 +233,9 @@ twice: id 16498 under the Java Edition type, and 16500 under another. The script
 runtime and prefers the type whose slug is `minecraft-<version>`, so bumping
 `minecraft_version` does not silently upload against the wrong one.
 
+It also rejects an upload carrying no entry from the Environment group, with `errorCode 1021`.
+This mod uploads as `Server` (id 9639).
+
 Its upload API can only add files to a project that already exists. Create the project on the
 site first, then add its numeric id as the `CURSEFORGE_PROJECT_ID` secret.
 

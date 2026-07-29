@@ -37,6 +37,11 @@ USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
 LOADER_NAME = "Fabric"
 JAVA_NAME = "Java 25"
 
+# CurseForge rejects an upload that carries no entry from the Environment group
+# with errorCode 1021. This mod is server side only.
+ENVIRONMENT_NAME = "Server"
+ENVIRONMENT_TYPE_SLUG = "environment"
+
 
 def require(name):
     value = os.environ.get(name, "").strip()
@@ -83,20 +88,25 @@ def resolve_game_versions(token, mc_version):
             f"type {wanted_type_slug}; using id {game_version['id']}"
         )
 
-    def by_name(name):
+    def by_name(name, type_slug=None):
         for v in versions:
-            if v["name"] == name:
-                return v
+            if v["name"] != name:
+                continue
+            if type_slug and types.get(v["gameVersionTypeID"], {}).get("slug") != type_slug:
+                continue
+            return v
         sys.exit(f"error: CurseForge has no version entry named {name!r}")
 
     loader = by_name(LOADER_NAME)
     java = by_name(JAVA_NAME)
+    environment = by_name(ENVIRONMENT_NAME, ENVIRONMENT_TYPE_SLUG)
 
     print(f"minecraft {mc_version}: id {game_version['id']}")
     print(f"{LOADER_NAME}: id {loader['id']}")
     print(f"{JAVA_NAME}: id {java['id']}")
+    print(f"{ENVIRONMENT_NAME}: id {environment['id']}")
 
-    return [game_version["id"], loader["id"], java["id"]]
+    return [game_version["id"], loader["id"], java["id"], environment["id"]]
 
 
 def encode_multipart(fields, files):
