@@ -5,10 +5,12 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.animal.equine.SkeletonHorse;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.monster.Enemy;
 import org.slf4j.Logger;
@@ -47,12 +49,43 @@ public class MobConduit implements ModInitializer {
 		}
 
 		// Natural spawns only. Spawners, trial spawners, spawn eggs, breeding, commands and
-		// every other reason keep working inside the radius.
-		if (reason != EntitySpawnReason.NATURAL && reason != EntitySpawnReason.CHUNK_GENERATION) {
+		// every other reason keep working inside the radius. JOCKEY is the one indirect case:
+		// vanilla mounts a companion onto a spawn during the vehicle's finalizeSpawn — the
+		// zombie horse's spear rider, the spider's skeleton — so a jockey counts as natural
+		// exactly when the mob it arrived attached to does.
+		EntitySpawnReason effective = reason == EntitySpawnReason.JOCKEY
+				? SpawnOrigin.companionReason(entity)
+				: reason;
+
+		if (effective != EntitySpawnReason.NATURAL && effective != EntitySpawnReason.CHUNK_GENERATION) {
+			// The one non-natural spawn the conduit vetoes: a thunderstorm trap skeleton horse.
+			// It exists solely to ambush — approach it and SkeletonTrapGoal spawns four
+			// persistent enchanted-bow horsemen, TRIGGERED and setPersistenceRequired, beyond
+			// both this filter and the sweep's exemptions. The trap flag is set before the add
+			// (ServerLevel.tickThunder, ServerLevel.java:556-562), so refusing the trap here is
+			// the one clean interception point.
+			if (entity instanceof SkeletonHorse horse && horse.isTrap()
+					&& ConduitStore.anyActive()
+					&& ConduitStore.get(level).suppresses(entity.blockPosition())) {
+				SpawnStats.SUPPRESSED.incrementAndGet();
+				return vetoSpawn(entity);
+			}
+
+			// Everything else through here is deliberately allowed, but counted: without this
+			// the sidebar reads near-100% suppression while an unconsidered vanilla spawn path
+			// walks hostiles straight in, which is exactly how the jockey leak stayed invisible.
+			if (entity instanceof Enemy) {
+				SpawnStats.HOSTILE_OTHER_REASON.incrementAndGet();
+			}
+
 			return true;
 		}
 
-		if (!(entity instanceof Enemy)) {
+		// Enemy alone misses vanilla's mounted spawns: a zombie horse is MobCategory.MONSTER
+		// but extends AbstractHorse, and vetoing only its rider would leave riderless undead
+		// mounts accumulating inside the radius. An explicit mount set rather than the MONSTER
+		// category, because the category also holds the sulfur cube — passive and farmable.
+		if (!(entity instanceof Enemy) && !SpawnOrigin.UNDEAD_MOUNTS.contains(entity.getType())) {
 			return true;
 		}
 
@@ -65,7 +98,7 @@ public class MobConduit implements ModInitializer {
 
 		if (ConduitStore.get(level).suppresses(entity.blockPosition())) {
 			SpawnStats.SUPPRESSED.incrementAndGet();
-			return false;
+			return vetoSpawn(entity);
 		}
 
 		SpawnStats.OUT_OF_RANGE.incrementAndGet();
@@ -73,12 +106,46 @@ public class MobConduit implements ModInitializer {
 	}
 
 	/**
+	 * Refuses a spawn, severing any ride first. A vetoed load is a silent non-add — the entity
+	 * object stays intact — and vanilla mounts jockey companions before anything is added. Left
+	 * linked, the half that was allowed keeps a phantom passenger reference, serializes it under
+	 * {@code Passengers} on chunk save, and the vetoed mob materializes on the next chunk load
+	 * through the loaded-from-disk allowance above. Vehicles are processed before their
+	 * passengers ({@code ServerLevelAccessor.addFreshEntityWithPassengers}), so by the time a
+	 * mounted pair is fully evaluated every refused rider has unlinked itself.
+	 */
+	private static boolean vetoSpawn(Entity entity) {
+		if (entity.isPassenger()) {
+			entity.stopRiding();
+		}
+
+		return false;
+	}
+
+	/**
 	 * Deactivation hangs off entity removal rather than a block break, which covers a player
 	 * killing the crystal, the crystal exploding, and the chunk unloading in one place.
+	 *
+	 * <p>Deferred, not immediate: this event fires inside the chunk system's own update pass —
+	 * a ticket-level change is what unloads the crystal's section — and deactivation touches
+	 * blocks. Calling setBlock from here re-enters the chunk system mid-iteration and crashes
+	 * the server (NPE in {@code DistanceManager.runAllUpdates};
+	 * {@code crash-2026-07-29_18.15.39}). Vanilla's task queue cannot defer this either, since
+	 * {@code BlockableEventLoop.execute} runs inline when already on the server thread
+	 * ({@code BlockableEventLoop.java:49-51,98-105}), so the position is parked on the store
+	 * and picked up by {@link #onLevelTick} at the end of the tick.
 	 */
 	private static void onEntityUnload(Entity entity, ServerLevel level) {
 		if (entity instanceof EndCrystal) {
-			ConduitStore.get(level).deactivate(level, entity.blockPosition());
+			ConduitStore store = ConduitStore.get(level);
+			BlockPos pos = entity.blockPosition();
+
+			// Only park positions that are actually conduits: this fires for every end
+			// crystal in the world, and the tick hook that drains the list is gated on a
+			// conduit existing.
+			if (store.isActiveAt(pos)) {
+				store.deferDeactivate(pos);
+			}
 		}
 	}
 
@@ -88,7 +155,9 @@ public class MobConduit implements ModInitializer {
 	 */
 	private static void onLevelTick(ServerLevel level) {
 		if (ConduitStore.anyActive() || ConduitStore.anyPendingEffects()) {
-			ConduitStore.get(level).drainRemovals(level);
+			ConduitStore store = ConduitStore.get(level);
+			store.drainDeactivations(level);
+			store.drainRemovals(level);
 		}
 	}
 

@@ -276,7 +276,9 @@ public final class RemovalEffects {
 	}
 
 	private static boolean isOurLight(ServerLevel level, BlockPos pos) {
-		return level.getBlockState(pos).getBlock() == Blocks.LIGHT;
+		// The loaded check keeps cleanup after a chunk unload from sync-loading the chunk
+		// back in just to read one block. An unloaded light is already saved and out of reach.
+		return level.isLoaded(pos) && level.getBlockState(pos).getBlock() == Blocks.LIGHT;
 	}
 
 	private static void clearLight(ServerLevel level, BlockPos pos) {

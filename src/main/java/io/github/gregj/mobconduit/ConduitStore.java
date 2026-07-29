@@ -10,7 +10,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -72,6 +75,13 @@ public final class ConduitStore extends SavedData {
 	 * deliberately re-arms, so mobs that accumulated while the server was down get swept.
 	 */
 	private final Set<BlockPos> armedThisSession = new HashSet<>();
+
+	/**
+	 * Crystal positions whose deactivation is waiting for a safe point in the tick. Entity
+	 * unload fires mid-chunk-system-update, where deactivation's setBlock calls crash the
+	 * server; see {@code MobConduit.onEntityUnload}.
+	 */
+	private final List<BlockPos> pendingDeactivations = new ArrayList<>();
 
 	public ConduitStore() {
 	}
@@ -156,6 +166,13 @@ public final class ConduitStore extends SavedData {
 	private static void restoreBase(ServerLevel level, BlockPos crystalPos) {
 		BlockPos base = crystalPos.below();
 
+		// A deactivation drained after the crystal's chunk unloaded must not force the chunk
+		// back in just to swap a block. The light stays in the saved chunk, and lightBase()
+		// only ever swapping obsidian keeps the pairing consistent when it reloads.
+		if (!level.isLoaded(base)) {
+			return;
+		}
+
 		if (level.getBlockState(base).getBlock() == Blocks.LIGHT) {
 			level.setBlock(base, Blocks.OBSIDIAN.defaultBlockState(), Block.UPDATE_ALL);
 		}
@@ -173,6 +190,25 @@ public final class ConduitStore extends SavedData {
 	/** Re-sweeps a single conduit. Used by the opt-in forcefield mode. */
 	public void sweepAt(ServerLevel level, BlockPos pos) {
 		queueRemovalSweep(level, find(pos));
+	}
+
+	/** Parks a deactivation for {@link #drainDeactivations}; safe to call mid-chunk-update. */
+	public void deferDeactivate(BlockPos pos) {
+		this.pendingDeactivations.add(pos.immutable());
+	}
+
+	/** Runs parked deactivations. Called from the end-of-tick hook, never inside chunk updates. */
+	public void drainDeactivations(ServerLevel level) {
+		if (this.pendingDeactivations.isEmpty()) {
+			return;
+		}
+
+		List<BlockPos> pending = List.copyOf(this.pendingDeactivations);
+		this.pendingDeactivations.clear();
+
+		for (BlockPos pos : pending) {
+			deactivate(level, pos);
+		}
 	}
 
 	/** Drops a conduit. Called on crystal removal: kill, explosion, or chunk unload. */
@@ -287,16 +323,66 @@ public final class ConduitStore extends SavedData {
 		AABB bounds = new AABB(conduit.pos()).inflate(conduit.radius());
 
 		List<Mob> found = level.getEntitiesOfClass(Mob.class, bounds, mob ->
-				mob instanceof Enemy
+				(mob instanceof Enemy || SpawnOrigin.UNDEAD_MOUNTS.contains(mob.getType()))
 						&& !mob.isRemoved()
-						&& !mob.hasCustomName()
-						&& !mob.isPersistenceRequired()
-						&& !mob.requiresCustomPersistence()
-						&& !config.isExemptFromRemoval(mob.getType())
+						&& !isProtected(config, mob)
 						&& conduit.covers(mob.getBlockX(), mob.getBlockY(), mob.getBlockZ()));
 
 		this.effects.enqueue(found, conduit.pos());
 		syncEffectsFlag();
+	}
+
+	/**
+	 * Exemptions from erasure: named, persistence-flagged, leashed, tamed, carrying-a-block,
+	 * raid members, config-exempt types, and anything whose spawn was player-driven.
+	 *
+	 * <p>{@code requiresCustomPersistence()} cannot be used as a blanket exemption: in 26.2 it
+	 * is {@code isPassenger() || isLeashed()} ({@code Mob.java:679-681}), and vanilla now spawns
+	 * mounted hostiles naturally — a zombie horse's spear rider would sit inside the radius
+	 * untouchable forever. Riding on its own therefore exempts nothing. The vanilla overrides
+	 * that method stands for are checked directly, because each holds whether or not the mob is
+	 * riding: raid membership ({@code Raider.java:240-241}; raids are player-triggered and the
+	 * conduit stays out of them), tamed horses covering the undead mounts the sweep now targets
+	 * ({@code AbstractHorse.java:169}; taming sets no persistence flag of its own), and an
+	 * enderman's carried block ({@code EnderMan.java:393-395}). The method itself is only
+	 * consulted for mobs that are not riding, which keeps unknown overrides — tamed nautiluses,
+	 * other mods' mobs — honoured everywhere vanilla honours them.
+	 *
+	 * <p>The spawn-reason check is what keeps "mob farms inside the radius keep working" true
+	 * under {@code forcefield}: spawner and breeding output would otherwise be erased within
+	 * one interval. Spawn-egg and {@code /summon} hostiles are deliberately fair game — they
+	 * spawn fine, then get swept like anything else standing in the radius. A null reason is
+	 * fair game too: it means disk-loaded (records do not survive a restart, and the arming
+	 * sweep exists precisely to clear what accumulated while the server was down — name-tag
+	 * pen stock to keep it), constructor-built without {@code finalizeSpawn}, or
+	 * {@code /summon} and spawner data carrying custom NBT, which vanilla skips
+	 * {@code finalizeSpawn} for ({@code BaseSpawner.java:159-162}).
+	 */
+	private static boolean isProtected(ModConfig config, Mob mob) {
+		if (mob.hasCustomName()
+				|| mob.isPersistenceRequired()
+				|| mob.isLeashed()
+				|| config.isExemptFromRemoval(mob.getType())) {
+			return true;
+		}
+
+		if (mob instanceof Raider raider && raider.getCurrentRaid() != null) {
+			return true;
+		}
+
+		if (mob instanceof AbstractHorse horse && horse.isTamed()) {
+			return true;
+		}
+
+		if (mob instanceof EnderMan enderMan && enderMan.getCarriedBlock() != null) {
+			return true;
+		}
+
+		if (!mob.isPassenger() && mob.requiresCustomPersistence()) {
+			return true;
+		}
+
+		return SpawnOrigin.sweepExempt(SpawnOrigin.effectiveReason(mob));
 	}
 
 	/**
@@ -368,6 +454,7 @@ public final class ConduitStore extends SavedData {
 		globalActiveCount -= this.countedInGlobal;
 		this.countedInGlobal = 0;
 		this.armedThisSession.clear();
+		this.pendingDeactivations.clear();
 		this.conduits.clear();
 		this.byChunk.clear();
 		this.effects.clearAll(level);

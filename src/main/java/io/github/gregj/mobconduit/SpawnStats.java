@@ -17,6 +17,14 @@ public final class SpawnStats {
 	/** Natural hostile spawn attempts that reached the guard at all. */
 	public static final AtomicLong HOSTILE_NATURAL = new AtomicLong();
 
+	/**
+	 * Hostiles allowed through because they arrived by a deliberate route — spawners, eggs,
+	 * raids, trap horses. Broken out so a vanilla spawn path the reason filter has not
+	 * considered shows up here instead of hiding behind a clean suppression rate, which is how
+	 * the 26.2 jockey spawns went unnoticed.
+	 */
+	public static final AtomicLong HOSTILE_OTHER_REASON = new AtomicLong();
+
 	/** Allowed because no conduit was active anywhere. */
 	public static final AtomicLong SKIPPED_NO_ACTIVE = new AtomicLong();
 
@@ -31,6 +39,7 @@ public final class SpawnStats {
 
 	public static void reset() {
 		HOSTILE_NATURAL.set(0);
+		HOSTILE_OTHER_REASON.set(0);
 		SKIPPED_NO_ACTIVE.set(0);
 		OUT_OF_RANGE.set(0);
 		SUPPRESSED.set(0);
@@ -40,6 +49,7 @@ public final class SpawnStats {
 		return "hostile natural spawn attempts: " + HOSTILE_NATURAL.get()
 				+ ", suppressed: " + SUPPRESSED.get()
 				+ ", out of range: " + OUT_OF_RANGE.get()
-				+ ", no active conduit: " + SKIPPED_NO_ACTIVE.get();
+				+ ", no active conduit: " + SKIPPED_NO_ACTIVE.get()
+				+ ", non-natural hostiles allowed: " + HOSTILE_OTHER_REASON.get();
 	}
 }

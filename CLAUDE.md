@@ -68,8 +68,11 @@ player replaces the crystal to reactivate.
   `forcefield`: together they make a perpetual grinder rather than a one-off payout, which is a
   materially different thing from what the paragraph above is weighing.
 - **Exempt:** boss entities (a player must not be able to delete a Wither by activating a
-  conduit), named mobs, anything flagged persistent, tamed mobs, and anything a player placed
-  deliberately.
+  conduit), named mobs, anything flagged persistent, tamed mobs, leashed mobs, raid members,
+  and the output of player-built machinery (spawners, trial spawners, breeding, conversions).
+  Spawn-egg and `/summon` hostiles are deliberately **not** exempt: they spawn fine, since
+  suppression only vetoes natural spawns, and the forcefield then treats them like any other
+  hostile standing in the radius.
 - **Wanderers are covered by `forcefield`, which defaults on.** The one-time activation sweep
   handles what is already inside. Everything else is handled by spawn suppression — except mobs
   that spawn *outside* the radius and walk in. Measured on a live server: 5142 of 5310 natural

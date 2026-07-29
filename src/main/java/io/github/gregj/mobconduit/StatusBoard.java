@@ -88,11 +88,13 @@ public final class StatusBoard {
 		}
 
 		long attempts = SpawnStats.HOSTILE_NATURAL.get();
+		long otherReason = SpawnStats.HOSTILE_OTHER_REASON.get();
 		long suppressed = SpawnStats.SUPPRESSED.get();
 		long outOfRange = SpawnStats.OUT_OF_RANGE.get();
 		long noConduit = SpawnStats.SKIPPED_NO_ACTIVE.get();
 
 		String[] rows = {
+				ChatFormatting.GRAY + "non-natural hostiles: " + ChatFormatting.WHITE + otherReason,
 				ChatFormatting.GRAY + "no active conduit: " + ChatFormatting.WHITE + noConduit,
 				ChatFormatting.GRAY + "out of range: " + ChatFormatting.WHITE + outOfRange,
 				ChatFormatting.GREEN + "suppressed: " + ChatFormatting.WHITE + suppressed,
