@@ -3,6 +3,10 @@ package io.github.gregj.mobconduit;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
@@ -15,6 +19,7 @@ import net.minecraft.world.level.block.Blocks;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -50,7 +55,8 @@ public final class ModConfig {
 	private int radiusMax = 128;
 	private int frameThresholdMin = VANILLA_ACTIVATION_FRAME_COUNT;
 	private int frameThresholdMax = FrameShape.MAX_FRAME_BLOCKS;
-	private List<String> removalExemptTypes = List.of("minecraft:wither", "minecraft:ender_dragon");
+	private List<String> removalExemptTypes = List.of(
+			"minecraft:wither", "minecraft:ender_dragon", "minecraft:warden", "minecraft:elder_guardian");
 	private int removalBudgetPerTick = 32;
 
 	private boolean activationSounds = true;
@@ -201,6 +207,91 @@ public final class ModConfig {
 		} catch (IOException e) {
 			MobConduit.LOGGER.error("Failed to write default config to {}", path, e);
 		}
+	}
+
+	/**
+	 * Sets one entry by its JSON key, revalidates the whole config, installs it and writes the
+	 * file. Driven through the Gson tree rather than a hand-maintained switch, so every
+	 * serialized field — current and future — is settable by exactly the name that appears in
+	 * the file, and transient resolved state can never be named.
+	 *
+	 * <p>Returns the effective value after validation, which is what actually took hold:
+	 * numbers come back clamped, and an unknown block or particle id comes back as the default
+	 * it fell back to.
+	 *
+	 * @throws IllegalArgumentException for an unknown key or an unparseable value.
+	 */
+	public static String set(String key, String rawValue) {
+		JsonObject tree = GSON.toJsonTree(active).getAsJsonObject();
+		JsonElement existing = tree.get(key);
+
+		if (existing == null) {
+			throw new IllegalArgumentException("Unknown setting '" + key + "'");
+		}
+
+		tree.add(key, parseLike(existing, rawValue));
+
+		ModConfig config = GSON.fromJson(tree, ModConfig.class);
+		config.validate();
+		active = config;
+		config.save();
+
+		return GSON.toJsonTree(config).getAsJsonObject().get(key).toString();
+	}
+
+	/** Current value of one entry, as it appears in the file. */
+	public static String describe(String key) {
+		JsonElement value = GSON.toJsonTree(active).getAsJsonObject().get(key);
+
+		if (value == null) {
+			throw new IllegalArgumentException("Unknown setting '" + key + "'");
+		}
+
+		return value.toString();
+	}
+
+	/** The settable keys, i.e. exactly the keys the config file holds. */
+	public static Set<String> keys() {
+		return GSON.toJsonTree(active).getAsJsonObject().keySet();
+	}
+
+	/**
+	 * Parses a raw command value against the type of the entry it replaces. Lists are
+	 * comma-separated ({@code none} or {@code []} to clear); this config only has lists of
+	 * strings.
+	 */
+	private static JsonElement parseLike(JsonElement existing, String raw) {
+		if (existing.isJsonArray()) {
+			JsonArray array = new JsonArray();
+
+			if (!raw.equals("none") && !raw.equals("[]")) {
+				for (String part : raw.split(",")) {
+					array.add(part.trim());
+				}
+			}
+
+			return array;
+		}
+
+		JsonPrimitive primitive = existing.getAsJsonPrimitive();
+
+		if (primitive.isBoolean()) {
+			if (!raw.equalsIgnoreCase("true") && !raw.equalsIgnoreCase("false")) {
+				throw new IllegalArgumentException("'" + raw + "' is not true or false");
+			}
+
+			return new JsonPrimitive(Boolean.parseBoolean(raw));
+		}
+
+		if (primitive.isNumber()) {
+			try {
+				return new JsonPrimitive(new BigDecimal(raw));
+			} catch (NumberFormatException e) {
+				throw new IllegalArgumentException("'" + raw + "' is not a number");
+			}
+		}
+
+		return new JsonPrimitive(raw);
 	}
 
 	/**

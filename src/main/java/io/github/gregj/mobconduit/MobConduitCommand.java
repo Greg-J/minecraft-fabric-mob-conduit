@@ -1,9 +1,11 @@
 package io.github.gregj.mobconduit;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -30,11 +32,67 @@ public final class MobConduitCommand {
 						.executes(MobConduitCommand::status)
 						.then(Commands.literal("off").executes(MobConduitCommand::statusOff)))
 				.then(Commands.literal("sweep").executes(MobConduitCommand::sweep))
+				.then(Commands.literal("set")
+						.then(Commands.argument("key", StringArgumentType.word())
+								.suggests((context, builder) -> SharedSuggestionProvider.suggest(ModConfig.keys(), builder))
+								.then(Commands.argument("value", StringArgumentType.greedyString())
+										.executes(MobConduitCommand::setConfig))))
+				.then(Commands.literal("get")
+						.then(Commands.argument("key", StringArgumentType.word())
+								.suggests((context, builder) -> SharedSuggestionProvider.suggest(ModConfig.keys(), builder))
+								.executes(MobConduitCommand::getConfig)))
 				.then(Commands.literal("build")
 						.then(Commands.argument("pos", BlockPosArgument.blockPos())
 								.executes(context -> build(context, BlockPosArgument.getBlockPos(context, "pos")))));
 
 		dispatcher.register(root);
+	}
+
+	/**
+	 * {@code /mobconduit set <key> <value>} — sets any config entry by its JSON key, applies it
+	 * live and writes the file. Runs the same conduit revalidation as {@code reload}: changing
+	 * {@code frame_block} or the radius keys re-derives or drops existing conduits, and a stale
+	 * entry would suppress spawning with no visible structure causing it.
+	 *
+	 * <p>The reply echoes the value that actually took hold, so a clamped number or an unknown
+	 * block id falling back to the default is visible immediately rather than sitting silently
+	 * in the log.
+	 */
+	private static int setConfig(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+		String key = StringArgumentType.getString(context, "key");
+		String value = StringArgumentType.getString(context, "value");
+		String effective;
+
+		try {
+			effective = ModConfig.set(key, value);
+		} catch (IllegalArgumentException e) {
+			context.getSource().sendFailure(Component.literal(e.getMessage()));
+			return 0;
+		}
+
+		int dropped = 0;
+
+		for (ServerLevel level : context.getSource().getServer().getAllLevels()) {
+			dropped += ConduitStore.get(level).revalidate(level);
+		}
+
+		int finalDropped = dropped;
+		context.getSource().sendSuccess(() -> Component.literal(key + " = " + effective + " (saved)"
+				+ (finalDropped > 0 ? " — " + finalDropped + " conduit(s) no longer valid" : "")), true);
+		return 1;
+	}
+
+	private static int getConfig(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+		String key = StringArgumentType.getString(context, "key");
+
+		try {
+			String value = ModConfig.describe(key);
+			context.getSource().sendSuccess(() -> Component.literal(key + " = " + value), false);
+			return 1;
+		} catch (IllegalArgumentException e) {
+			context.getSource().sendFailure(Component.literal(e.getMessage()));
+			return 0;
+		}
 	}
 
 	/**
