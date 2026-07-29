@@ -62,6 +62,19 @@ public final class FrameShape {
 		return OFFSETS.clone();
 	}
 
+	/** Indexed, allocation-free access for callers on a tick path. */
+	public static int offsetX(int index) {
+		return OFFSETS[index * 3];
+	}
+
+	public static int offsetY(int index) {
+		return OFFSETS[index * 3 + 1];
+	}
+
+	public static int offsetZ(int index) {
+		return OFFSETS[index * 3 + 2];
+	}
+
 	/**
 	 * Counts frame blocks around {@code centre}. The centre is the crystal's position, not the
 	 * block it stands on.

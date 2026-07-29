@@ -33,8 +33,10 @@ public final class ConduitDetector {
 		boolean due = phase % CHECK_INTERVAL_TICKS == 0;
 		boolean ambientDue = phase % ConduitSounds.AMBIENT_INTERVAL_TICKS == 0;
 		boolean forcefieldDue = config.forcefield() && phase % config.forcefieldIntervalTicks() == 0;
+		boolean dripDue = config.frameDripsEnabled() && phase % config.frameDripIntervalTicks() == 0;
+		boolean auraDue = config.crystalAuraEnabled() && phase % config.crystalAuraIntervalTicks() == 0;
 
-		if (!due && !ambientDue && !forcefieldDue) {
+		if (!due && !ambientDue && !forcefieldDue && !dripDue && !auraDue) {
 			return;
 		}
 
@@ -56,6 +58,14 @@ public final class ConduitDetector {
 
 		if (ambientDue) {
 			ConduitSounds.ambient(level, pos);
+		}
+
+		if (dripDue) {
+			ConduitParticles.frameDrips(level, pos);
+		}
+
+		if (auraDue) {
+			ConduitParticles.crystalAura(level, pos);
 		}
 
 		// Opt-in only. This is the radius scan the rest of the mod is built to avoid, so it runs

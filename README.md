@@ -29,9 +29,11 @@ off; place a new crystal on the obsidian to bring it back.
   eggs, breeding and `/summon` all keep working, so mob farms inside the radius are unaffected.
 - Passive and neutral mobs are never touched.
 - On activation, hostiles already inside are erased — a light block appears over each one, it
-  vanishes in a burst of soul fire, and the light fades out. Staged across ticks so a large
-  sweep does not stutter.
+  vanishes in a burst of soul fire that climbs 10–20 blocks, and the light fades out. Staged
+  across ticks so a large sweep does not stutter.
 - With `forcefield` on (the default), hostiles that wander in afterwards get the same treatment.
+- While active it weeps obsidian tears off the frame and holds a shimmer of sculk souls around
+  the crystal. Every particle is configurable, including the type.
 
 Boss mobs, named mobs, and anything flagged persistent are exempt.
 
@@ -109,13 +111,50 @@ outside every radius, and how many were seen while no conduit was active.
 | `activation_sounds` | `true` | Layered `block.beacon.*` and `block.conduit.*` on activate/deactivate. |
 | `ambient_sounds` | `true` | Layered ambient hum every 80 ticks while active. |
 | `light_base_on_activate` | `true` | Swap the obsidian under the crystal for a light block while active, restored when it shuts off. |
-| `removal_particle_count` | `40` | Soul fire burst per erased mob. |
-| `removal_riser_count` | `20` | Soul flames that climb out of the mob. |
+| `crystal_aura_enabled` | `true` | Continuous shimmer in and around the crystal while active. |
+| `crystal_aura_count` | `6` | Particles per emission. |
+| `crystal_aura_interval_ticks` | `4` | Lower is denser. |
+| `frame_drips_enabled` | `true` | Tears weeping off the frame while active. |
+| `frame_drip_count` | `3` | Frame blocks that drip per pass, out of 42. |
+| `frame_drip_interval_ticks` | `8` | Lower is heavier. |
+| `removal_particle_count` | `40` | Burst per erased mob. |
+| `removal_riser_count` | `20` | Flames that climb out of the mob. |
 | `removal_riser_speed` | `1.0` | Upward velocity per riser; ~1.0 climbs 10–21 blocks. |
 | `removal_light_enabled` | `true` | Light block over each mob's head as it is erased. |
 | `removal_light_delay_ticks` | `10` | How long the light shows before the mob vanishes. |
 | `removal_light_fade_ticks` | `60` | Fade duration, walked one light level at a time. |
 | `max_concurrent_lights` | `0` | Ceiling on lights in flight. `0` means unlimited. |
+| `kill_plume_count` | `0` | Burst off the top of the conduit per forcefield kill, across the centre 3×3. `0` disables. |
+| `kill_beam_length` | `0` | Column fired straight up per forcefield kill, one particle per block. `0` disables. |
+
+### Particle types
+
+Every effect's particle is swappable. Values are vanilla particle ids.
+
+| Key | Default |
+|---|---|
+| `crystal_aura_particle` | `minecraft:sculk_soul` |
+| `frame_drip_particle` | `minecraft:dripping_obsidian_tear` |
+| `removal_particle` | `minecraft:soul_fire_flame` |
+| `removal_secondary_particle` | `minecraft:soul` |
+| `removal_riser_particle` | `minecraft:soul_fire_flame` |
+| `kill_plume_particle` | `minecraft:sculk_soul` |
+| `kill_beam_particle` | `minecraft:sonic_boom` |
+
+> **Only particles that need no extra data can be named by id.** That covers most of them —
+> `sculk_soul`, `end_rod`, `dragon_breath`, `sonic_boom`, `witch` and so on. It does not cover
+> `dust`, `block`, `item`, or `dust_color_transition`, which need a colour, block state, or
+> itemstack alongside the id. Naming one of those logs an error identifying the key and falls
+> back to the default rather than failing to start.
+>
+> Some particles are flagged to stay visible at long range and through reduced particle
+> settings; others fade out at distance. `sonic_boom` and `trial_spawner_detection_ominous` are
+> long-range, `sculk_soul` is not. Worth knowing if an effect looks right up close but vanishes
+> from across the base.
+>
+> `kill_beam_length` exists because `sonic_boom` only reads correctly as a line of single
+> particles, one per block, the way the warden emits it. Scattering it like a burst produces a
+> wall of white.
 
 > **`removal_drops` and `forcefield` compound.** Separately, `removal_drops` gives a one-off
 > payout when a conduit activates. Together with `forcefield` you have built a permanent mob

@@ -1,7 +1,6 @@
 package io.github.gregj.mobconduit;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -25,8 +24,9 @@ import java.util.List;
  * </ol>
  *
  * <p>Every stage is budgeted per tick. Lighting is the expensive part: each brightness change
- * relights up to 15 blocks in every direction, so the fade uses {@link #FADE_STEPS} coarse steps
- * rather than all 15 levels, and {@code max_concurrent_lights} bounds how many can be in flight.
+ * relights up to 15 blocks in every direction, and the fade walks every level, so a mob costs 15
+ * relights. That is deliberate — it only happens on erasure, and {@code max_concurrent_lights}
+ * is there if a server ever needs to bound it.
  *
  * <p>Placed lights are tracked so they can be cleared on shutdown. Without that, stopping the
  * server mid-fade would strand invisible light blocks in the world that a player cannot find.
@@ -42,20 +42,26 @@ public final class RemovalEffects {
 
 	private static final int LEVEL_PER_STEP = 1;
 
-	private final ArrayDeque<Mob> queued = new ArrayDeque<>();
+	private final ArrayDeque<Queued> queued = new ArrayDeque<>();
 	private final List<Doomed> armed = new ArrayList<>();
 	private final List<FadingLight> fading = new ArrayList<>();
 
 	private static final class Doomed {
 		private final Mob mob;
 		private final BlockPos lightPos;
+		private final BlockPos sourceConduit;
 		private int ticksToVanish;
 
-		private Doomed(Mob mob, BlockPos lightPos, int ticksToVanish) {
+		private Doomed(Mob mob, BlockPos lightPos, BlockPos sourceConduit, int ticksToVanish) {
 			this.mob = mob;
 			this.lightPos = lightPos;
+			this.sourceConduit = sourceConduit;
 			this.ticksToVanish = ticksToVanish;
 		}
+	}
+
+	/** A queued mob paired with the conduit that condemned it, so the plume knows where to fire. */
+	private record Queued(Mob mob, BlockPos sourceConduit) {
 	}
 
 	private static final class FadingLight {
@@ -70,8 +76,10 @@ public final class RemovalEffects {
 		}
 	}
 
-	public void enqueue(List<Mob> mobs) {
-		this.queued.addAll(mobs);
+	public void enqueue(List<Mob> mobs, BlockPos sourceConduit) {
+		for (Mob mob : mobs) {
+			this.queued.add(new Queued(mob, sourceConduit));
+		}
 	}
 
 	public boolean isIdle() {
@@ -133,7 +141,7 @@ public final class RemovalEffects {
 			}
 
 			it.remove();
-			vanish(level, config, doomed.mob);
+			vanish(level, config, doomed.mob, doomed.sourceConduit);
 
 			if (doomed.lightPos != null) {
 				this.fading.add(new FadingLight(doomed.lightPos, LightBlock.MAX_LEVEL, stepLength()));
@@ -145,11 +153,13 @@ public final class RemovalEffects {
 		int budget = config.removalBudgetPerTick();
 
 		while (budget-- > 0) {
-			Mob mob = this.queued.poll();
+			Queued next = this.queued.poll();
 
-			if (mob == null) {
+			if (next == null) {
 				return;
 			}
+
+			Mob mob = next.mob();
 
 			if (mob.isRemoved()) {
 				continue;
@@ -158,13 +168,13 @@ public final class RemovalEffects {
 			BlockPos lightPos = placeLight(level, config, mob);
 
 			if (config.removalLightDelayTicks() <= 0) {
-				vanish(level, config, mob);
+				vanish(level, config, mob, next.sourceConduit());
 
 				if (lightPos != null) {
 					this.fading.add(new FadingLight(lightPos, LightBlock.MAX_LEVEL, stepLength()));
 				}
 			} else {
-				this.armed.add(new Doomed(mob, lightPos, config.removalLightDelayTicks()));
+				this.armed.add(new Doomed(mob, lightPos, next.sourceConduit(), config.removalLightDelayTicks()));
 			}
 		}
 	}
@@ -188,9 +198,16 @@ public final class RemovalEffects {
 		return pos;
 	}
 
-	private void vanish(ServerLevel level, ModConfig config, Mob mob) {
+	private void vanish(ServerLevel level, ModConfig config, Mob mob, BlockPos sourceConduit) {
 		if (mob.isRemoved()) {
 			return;
+		}
+
+		// The conduit visibly answers for the kill. Gated on forcefield, where erasure is an
+		// ongoing act rather than the one-off activation sweep.
+		if (sourceConduit != null && config.forcefield()) {
+			ConduitParticles.killPlume(level, sourceConduit);
+			ConduitParticles.killBeam(level, sourceConduit);
 		}
 
 		double x = mob.getX();
@@ -199,8 +216,8 @@ public final class RemovalEffects {
 		int count = config.removalParticleCount();
 
 		if (count > 0) {
-			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, count, 0.35, 0.55, 0.35, 0.03);
-			level.sendParticles(ParticleTypes.SOUL, x, y, z, Math.max(1, count / 3), 0.3, 0.45, 0.3, 0.02);
+			level.sendParticles(config.removalParticle(), x, y, z, count, 0.35, 0.55, 0.35, 0.03);
+			level.sendParticles(config.removalSecondaryParticle(), x, y, z, Math.max(1, count / 3), 0.3, 0.45, 0.3, 0.02);
 		}
 
 		emitRisers(level, config, x, y, z);
@@ -246,7 +263,7 @@ public final class RemovalEffects {
 			double driftZ = (random.nextDouble() - 0.5) * 0.06;
 			double rise = config.removalRiserSpeed() * (0.75 + random.nextDouble() * 0.5);
 
-			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+			level.sendParticles(config.removalRiserParticle(),
 					x + (random.nextDouble() - 0.5) * 0.8,
 					y + (random.nextDouble() - 0.5) * 0.6,
 					z + (random.nextDouble() - 0.5) * 0.8,

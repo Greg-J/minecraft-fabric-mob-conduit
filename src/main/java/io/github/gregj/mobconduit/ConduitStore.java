@@ -295,7 +295,7 @@ public final class ConduitStore extends SavedData {
 						&& !config.isExemptFromRemoval(mob.getType())
 						&& conduit.covers(mob.getBlockX(), mob.getBlockY(), mob.getBlockZ()));
 
-		this.effects.enqueue(found);
+		this.effects.enqueue(found, conduit.pos());
 		syncEffectsFlag();
 	}
 

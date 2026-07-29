@@ -4,6 +4,8 @@ import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
@@ -58,6 +60,41 @@ public final class ModConfig {
 	/** Directional soul flames that climb out of the mob. One packet each. */
 	private int removalRiserCount = 20;
 
+	// Particle types. Any vanilla particle id that needs no extra data — see resolveParticle.
+	private String crystalAuraParticle = "minecraft:sculk_soul";
+	private String killPlumeParticle = "minecraft:sculk_soul";
+	private String frameDripParticle = "minecraft:dripping_obsidian_tear";
+	private String removalParticle = "minecraft:soul_fire_flame";
+	private String removalSecondaryParticle = "minecraft:soul";
+	private String removalRiserParticle = "minecraft:soul_fire_flame";
+
+	/** Continuous `trial_spawner_detection_ominous` shimmer in and around the crystal. */
+	private boolean crystalAuraEnabled = true;
+
+	private int crystalAuraCount = 6;
+
+	private int crystalAuraIntervalTicks = 4;
+
+	/** Soul flames off the top of the conduit per forcefield kill, across the centre 3x3. */
+	private int killPlumeCount = 0;
+
+	/**
+	 * Column fired up out of the top per forcefield kill, one particle per block. Off by
+	 * default — set a length to enable it. {@code sonic_boom} is the intended particle, and it
+	 * only reads correctly emitted this way rather than as a scattered burst.
+	 */
+	private String killBeamParticle = "minecraft:sonic_boom";
+
+	private int killBeamLength = 0;
+
+	/** `dripping_obsidian_tear` weeping off the frame while active. */
+	private boolean frameDripsEnabled = true;
+
+	/** Frame blocks that drip per pass. Kept low so it reads as weeping, not a particle wall. */
+	private int frameDripCount = 3;
+
+	private int frameDripIntervalTicks = 8;
+
 	/** Upward velocity per riser. ~1.0 climbs roughly 10-21 blocks before the particle expires. */
 	private double removalRiserSpeed = 1.0;
 
@@ -102,6 +139,14 @@ public final class ModConfig {
 
 	private transient Block resolvedFrameBlock = Blocks.NETHERITE_BLOCK;
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
+
+	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.SCULK_SOUL;
+	private transient SimpleParticleType resolvedKillPlumeParticle = ParticleTypes.SCULK_SOUL;
+	private transient SimpleParticleType resolvedKillBeamParticle = ParticleTypes.SONIC_BOOM;
+	private transient SimpleParticleType resolvedFrameDripParticle = ParticleTypes.DRIPPING_OBSIDIAN_TEAR;
+	private transient SimpleParticleType resolvedRemovalParticle = ParticleTypes.SOUL_FIRE_FLAME;
+	private transient SimpleParticleType resolvedRemovalSecondaryParticle = ParticleTypes.SOUL;
+	private transient SimpleParticleType resolvedRemovalRiserParticle = ParticleTypes.SOUL_FIRE_FLAME;
 
 	public static ModConfig get() {
 		return active;
@@ -177,6 +222,20 @@ public final class ModConfig {
 		this.removalBudgetPerTick = clamp(this.removalBudgetPerTick, 1, 4096);
 		this.removalParticleCount = clamp(this.removalParticleCount, 0, 256);
 		this.removalRiserCount = clamp(this.removalRiserCount, 0, 128);
+		this.resolvedCrystalAuraParticle = resolveParticle(this.crystalAuraParticle, "crystal_aura_particle", ParticleTypes.SCULK_SOUL);
+		this.resolvedKillPlumeParticle = resolveParticle(this.killPlumeParticle, "kill_plume_particle", ParticleTypes.SCULK_SOUL);
+		this.resolvedKillBeamParticle = resolveParticle(this.killBeamParticle, "kill_beam_particle", ParticleTypes.SONIC_BOOM);
+		this.resolvedFrameDripParticle = resolveParticle(this.frameDripParticle, "frame_drip_particle", ParticleTypes.DRIPPING_OBSIDIAN_TEAR);
+		this.resolvedRemovalParticle = resolveParticle(this.removalParticle, "removal_particle", ParticleTypes.SOUL_FIRE_FLAME);
+		this.resolvedRemovalSecondaryParticle = resolveParticle(this.removalSecondaryParticle, "removal_secondary_particle", ParticleTypes.SOUL);
+		this.resolvedRemovalRiserParticle = resolveParticle(this.removalRiserParticle, "removal_riser_particle", ParticleTypes.SOUL_FIRE_FLAME);
+
+		this.crystalAuraCount = clamp(this.crystalAuraCount, 0, 128);
+		this.crystalAuraIntervalTicks = clamp(this.crystalAuraIntervalTicks, 1, 200);
+		this.killPlumeCount = clamp(this.killPlumeCount, 0, 512);
+		this.killBeamLength = clamp(this.killBeamLength, 0, 64);
+		this.frameDripCount = clamp(this.frameDripCount, 0, 42);
+		this.frameDripIntervalTicks = clamp(this.frameDripIntervalTicks, 1, 200);
 		this.removalRiserSpeed = Math.max(0.0, Math.min(4.0, this.removalRiserSpeed));
 		this.forcefieldIntervalTicks = clamp(this.forcefieldIntervalTicks, 5, 1200);
 		this.removalLightDelayTicks = clamp(this.removalLightDelayTicks, 0, 200);
@@ -215,6 +274,35 @@ public final class ModConfig {
 		}
 
 		return BuiltInRegistries.BLOCK.getValue(id);
+	}
+
+	/**
+	 * Resolves a particle id, falling back on anything unusable.
+	 *
+	 * <p>Only {@link SimpleParticleType} works here. It is the one particle class that is both a
+	 * registry entry and a {@code ParticleOptions} ({@code SimpleParticleType.java:7}); types
+	 * like {@code dust}, {@code block} and {@code item} carry extra data that an id alone cannot
+	 * supply, so naming one is a config error rather than something to guess at.
+	 */
+	private static SimpleParticleType resolveParticle(String name, String key, SimpleParticleType fallback) {
+		Identifier id = tryParse(name);
+
+		if (id == null) {
+			MobConduit.LOGGER.error("{}: '{}' is not a valid identifier; falling back to the default", key, name);
+			return fallback;
+		}
+
+		if (!BuiltInRegistries.PARTICLE_TYPE.containsKey(id)) {
+			MobConduit.LOGGER.error("{}: '{}' is not a known particle; falling back to the default", key, name);
+			return fallback;
+		}
+
+		if (BuiltInRegistries.PARTICLE_TYPE.getValue(id) instanceof SimpleParticleType simple) {
+			return simple;
+		}
+
+		MobConduit.LOGGER.error("{}: '{}' needs extra data and cannot be set by id alone; falling back to the default", key, name);
+		return fallback;
 	}
 
 	private static Identifier tryParse(String name) {
@@ -300,6 +388,66 @@ public final class ModConfig {
 
 	public int removalRiserCount() {
 		return this.removalRiserCount;
+	}
+
+	public SimpleParticleType crystalAuraParticle() {
+		return this.resolvedCrystalAuraParticle;
+	}
+
+	public SimpleParticleType killPlumeParticle() {
+		return this.resolvedKillPlumeParticle;
+	}
+
+	public SimpleParticleType killBeamParticle() {
+		return this.resolvedKillBeamParticle;
+	}
+
+	public int killBeamLength() {
+		return this.killBeamLength;
+	}
+
+	public SimpleParticleType frameDripParticle() {
+		return this.resolvedFrameDripParticle;
+	}
+
+	public SimpleParticleType removalParticle() {
+		return this.resolvedRemovalParticle;
+	}
+
+	public SimpleParticleType removalSecondaryParticle() {
+		return this.resolvedRemovalSecondaryParticle;
+	}
+
+	public SimpleParticleType removalRiserParticle() {
+		return this.resolvedRemovalRiserParticle;
+	}
+
+	public boolean crystalAuraEnabled() {
+		return this.crystalAuraEnabled;
+	}
+
+	public int crystalAuraCount() {
+		return this.crystalAuraCount;
+	}
+
+	public int crystalAuraIntervalTicks() {
+		return this.crystalAuraIntervalTicks;
+	}
+
+	public int killPlumeCount() {
+		return this.killPlumeCount;
+	}
+
+	public boolean frameDripsEnabled() {
+		return this.frameDripsEnabled;
+	}
+
+	public int frameDripCount() {
+		return this.frameDripCount;
+	}
+
+	public int frameDripIntervalTicks() {
+		return this.frameDripIntervalTicks;
 	}
 
 	public double removalRiserSpeed() {
