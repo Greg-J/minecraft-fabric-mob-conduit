@@ -189,6 +189,42 @@ One Mixin, on `EndCrystal#tick`. That is the entire surface area against Minecra
 
 Requires JDK 25. Minecraft 26.2 is unobfuscated, so there is no remapping step and no Yarn.
 
+## Releasing
+
+Publishing to Modrinth is automated. Bump `mod_version` in `gradle.properties`, then push an
+annotated tag:
+
+```sh
+git tag -a v1.0.1 -m "Fix frame detection across chunk borders"
+git push origin v1.0.1
+```
+
+The tag annotation becomes the Modrinth changelog, so write it for players rather than for the
+commit log. CI builds the jar, checks it, and uploads it.
+
+Guards that will stop a bad release before anything is published:
+
+- Tag version must match `mod_version` in `gradle.properties`
+- The built jar's `fabric.mod.json` must declare that same version
+- The version must not already exist on Modrinth
+
+The workflow can also be run by hand from the **Actions** tab, with a release-channel picker
+and a dry-run option — that is the way to retry a failed upload without re-tagging.
+
+To publish from your own machine instead:
+
+```sh
+MODRINTH_TOKEN=... MODRINTH_PROJECT_ID=tBSSIv55 \
+JAR_PATH=build/libs/mob-conduit-1.0.0.jar \
+MOD_VERSION=1.0.1 MC_VERSION=26.2 CHANGELOG="..." \
+DRY_RUN=true python3 tools/publish-modrinth.py
+```
+
+Set `DRY_RUN=false` to actually upload. The script uses only the standard library.
+
+Credentials live in repository secrets (`MODRINTH_TOKEN`, `MODRINTH_PROJECT_ID`), never in the
+repo.
+
 ## License
 
 CC0-1.0. See [LICENSE](LICENSE).

@@ -1,0 +1,132 @@
+# Publish a release to Modrinth.
+#
+# Triggered by pushing a version tag:
+#
+#     git tag -a v1.0.1 -m "Fix frame detection across chunk borders"
+#     git push origin v1.0.1
+#
+# The tag's annotation message becomes the Modrinth changelog, so write it for
+# players rather than for the commit log. Can also be run by hand from the
+# Actions tab, which is the safe way to retry a failed upload.
+#
+# Requires two repository secrets: MODRINTH_TOKEN and MODRINTH_PROJECT_ID.
+
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Release channel'
+        required: true
+        default: 'release'
+        type: choice
+        options: [release, beta, alpha]
+      dry_run:
+        description: 'Build and validate without uploading'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Annotated tag messages are not fetched with a shallow clone.
+          fetch-depth: 0
+
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: read project properties
+        id: props
+        run: |
+          set -euo pipefail
+          MOD_VERSION=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          MC_VERSION=$(grep -E '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "mc_version=$MC_VERSION"  >> "$GITHUB_OUTPUT"
+          echo "Mod $MOD_VERSION for Minecraft $MC_VERSION"
+
+      - name: check tag matches mod_version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$TAG_VERSION" != "${{ steps.props.outputs.mod_version }}" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME implies version $TAG_VERSION but gradle.properties says ${{ steps.props.outputs.mod_version }}. Bump mod_version before tagging."
+            exit 1
+          fi
+
+      - name: build
+        run: ./gradlew build
+
+      - name: locate jar
+        id: jar
+        run: |
+          set -euo pipefail
+          # -dev and -sources jars are build artifacts, not releases.
+          JAR=$(find build/libs -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -1)
+          if [ -z "$JAR" ]; then
+            echo "::error::No release jar found in build/libs"
+            exit 1
+          fi
+          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "Found $JAR ($(du -h "$JAR" | cut -f1))"
+
+      - name: verify the jar declares the expected version
+        run: |
+          set -euo pipefail
+          unzip -p "${{ steps.jar.outputs.path }}" fabric.mod.json > /tmp/fmj.json
+          JAR_VERSION=$(python3 -c "import json;print(json.load(open('/tmp/fmj.json'))['version'])")
+          if [ "$JAR_VERSION" != "${{ steps.props.outputs.mod_version }}" ]; then
+            echo "::error::Jar declares $JAR_VERSION, expected ${{ steps.props.outputs.mod_version }}"
+            exit 1
+          fi
+          echo "Jar declares version $JAR_VERSION"
+
+      - name: build changelog
+        id: changelog
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            # Annotation body of an annotated tag; empty for a lightweight one.
+            BODY=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          else
+            BODY=""
+          fi
+          if [ -z "$(echo "$BODY" | tr -d '[:space:]')" ]; then
+            BODY="Release ${{ steps.props.outputs.mod_version }} for Minecraft ${{ steps.props.outputs.mc_version }}."
+          fi
+          {
+            echo 'text<<CHANGELOG_EOF'
+            echo "$BODY"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: publish to modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_PROJECT_ID: ${{ secrets.MODRINTH_PROJECT_ID }}
+          JAR_PATH: ${{ steps.jar.outputs.path }}
+          MOD_VERSION: ${{ steps.props.outputs.mod_version }}
+          MC_VERSION: ${{ steps.props.outputs.mc_version }}
+          CHANGELOG: ${{ steps.changelog.outputs.text }}
+          VERSION_TYPE: ${{ github.event.inputs.version_type || 'release' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python3 tools/publish-modrinth.py
