@@ -1,86 +1,70 @@
 # Mob Conduit
 
-Spawn-proofing a big base is tedious. You either carpet the place in light blocks, slab every
-surface for a hundred blocks, or give up and fight zombies in your own storage room forever.
+Stops hostile mobs spawning around it. Made out of vanilla blocks.
 
-So I built this. It's one structure that shuts hostile spawning off in a radius around it, and
-it's made entirely out of vanilla blocks.
+Server side only, so players don't install anything.
 
-## It's server-side only
+## How it stays server side
 
-Your players install nothing. They join with a stock client and it just works.
+The mod doesn't register any new blocks, items, particles or sounds. Everything it uses is
+already in vanilla, so there's no registry sync to fail and nothing for players to download.
 
-I mean that literally — the mod adds no blocks, no items, no recipes, no particles, no sounds.
-Nothing gets registered, so there's no registry sync to fail. Everything you see is a vanilla
-block, a vanilla particle, or a vanilla sound. Drop the jar on the server and you're done.
+That's also why the middle is an end crystal instead of a conduit block. A vanilla client draws
+a conduit block in its inactive state no matter what the server says, so it would have looked
+broken to everyone. An end crystal spins by itself, so you can tell whether it's on.
 
 ## Building one
 
-If you've built a conduit, you already know the shape. Three rings, 42 blocks, same geometry.
-
-- **Frame:** netherite blocks by default, in the vanilla conduit pattern
-- **Centre:** obsidian with an end crystal on top
+Same frame as a vanilla conduit. Three rings, 42 blocks, netherite by default. Obsidian in the
+middle with an end crystal on it.
 
 No water. It works in open air.
 
-The crystal is the on/off indicator. It spins when it's running. That's not a coincidence, it's
-the whole reason I used a crystal instead of a conduit block — a vanilla client always draws a
-conduit block in its inactive state, so it would have looked broken to everyone but me.
+16 frame blocks gives you a 64 block radius. A full 42 gives you 128.
 
-More frame blocks, bigger radius. 16 gets you 64 blocks, a full 42 gets you 128.
+## What it does
 
-## What it actually does
+Natural hostile spawns stop inside the radius.
 
-Hostile mobs stop spawning naturally inside the sphere. That's it, that's the mod.
+Spawners, trial spawners, spawn eggs, breeding and `/summon` all keep working, so a mob farm
+inside the radius is fine. Passive and neutral mobs are ignored.
 
-Things that keep working, on purpose:
+Anything hostile already inside when it switches on gets removed. A light turns on over the mob
+and it comes apart in soul fire. This is spread over several ticks so a few hundred mobs won't
+hitch the server. They get removed instead of killed, so there's no drops and no XP orbs sitting
+around for five minutes afterwards. There's a config option if you want drops.
 
-- Mob spawners and trial spawners
-- Spawn eggs
-- Breeding
-- `/summon`
+It also removes hostiles that wander in later, which you can turn off if you only want spawn
+suppression.
 
-So your mob farm inside the radius is fine. Passive and neutral mobs are never touched.
+While it's on it weeps obsidian tears off the frame and holds sculk souls around the crystal.
 
-Anything hostile already inside when you switch it on gets erased. A light blinks on over its
-head, it comes apart in soul fire, and the flames climb twenty blocks. It's staged across ticks
-so a couple hundred mobs won't hitch your server. And it's a removal, not a kill — no drops, no
-XP, no five minutes of item entities lying around. You can turn drops on if you'd rather.
+## Cost
 
-By default it also handles anything that wanders in later. You can turn that off if you want
-pure spawn suppression.
-
-While it's running it weeps obsidian tears off the frame and holds a haze of sculk souls around
-the crystal, so you can tell at a glance it's on.
-
-## It's expensive and that's the point
-
-At the netherite default a full frame runs you about 1,512 ancient debris. This is meant to be
-something you build once, late, after you've already won.
+A full netherite frame is about 1,512 ancient debris. That's on purpose. It's meant to be
+something you build after you've already beaten the game.
 
 If that's too much for your server, set `frame_block` to `minecraft:ancient_debris` in the
-config. Same look, tiny fraction of the cost. Or point it at any vanilla block you like.
+config. Same shape, much cheaper. Any vanilla block works.
 
-## The crystal is destructible
+## The crystal can be destroyed
 
-Blow it up and the conduit shuts off. Creepers will eventually find it. Withers absolutely will.
+Creepers will get it eventually and withers have no trouble with it. When the crystal goes the
+conduit stops and spawning comes back.
 
-I left that in deliberately. It's a real structure with a real weak point, not a magic bubble.
-Put a new crystal on the obsidian and it comes back.
+Put a new crystal on the obsidian to start it again.
 
 ## Config
 
-Everything's in `config/mob-conduit.json`, and `/mobconduit reload` re-reads it without a
-restart. Radius, thresholds, frame block, drops, forcefield, and every particle effect including
-which particle each one uses.
+`config/mob-conduit.json`. Run `/mobconduit reload` to pick up changes without restarting.
 
-There's also `/mobconduit status`, which puts a live scoreboard on screen showing how many spawn
-attempts it's blocking in real time. Handy for convincing yourself it's working.
+You can set the radius, the thresholds, the frame block, whether mobs drop loot, whether it
+handles wanderers, and all the particle effects including which particle each one uses.
+
+`/mobconduit status` puts a scoreboard on screen with a running count of how many spawns it's
+blocking.
 
 ## Requirements
 
-- Minecraft 26.2
-- Fabric Loader 0.19.3+
-- Fabric API
-- Java 25
-- Server side only. Clients need nothing.
+Minecraft 26.2, Fabric Loader 0.19.3+, Fabric API, Java 25. Server side only, clients need
+nothing.

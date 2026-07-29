@@ -191,16 +191,16 @@ Requires JDK 25. Minecraft 26.2 is unobfuscated, so there is no remapping step a
 
 ## Releasing
 
-Publishing to Modrinth is automated. Bump `mod_version` in `gradle.properties`, then push an
-annotated tag:
+Publishing to Modrinth and CurseForge is automated. Bump `mod_version` in `gradle.properties`,
+then push an annotated tag:
 
 ```sh
 git tag -a v1.0.1 -m "Fix frame detection across chunk borders"
 git push origin v1.0.1
 ```
 
-The tag annotation becomes the Modrinth changelog, so write it for players rather than for the
-commit log. CI builds the jar, checks it, and uploads it.
+The tag annotation becomes the changelog on both sites, so write it for players rather than for
+the commit log. CI builds the jar, checks it, and uploads it.
 
 Guards that will stop a bad release before anything is published:
 
@@ -209,7 +209,9 @@ Guards that will stop a bad release before anything is published:
 - The version must not already exist on Modrinth
 
 The workflow can also be run by hand from the **Actions** tab, with a release-channel picker
-and a dry-run option — that is the way to retry a failed upload without re-tagging.
+and a dry-run option. That is the way to retry a failed upload without re-tagging.
+
+Each site is skipped if its project id secret is unset, so one can be added without the other.
 
 To publish from your own machine instead:
 
@@ -220,10 +222,24 @@ MOD_VERSION=1.0.1 MC_VERSION=26.2 CHANGELOG="..." \
 DRY_RUN=true python3 tools/publish-modrinth.py
 ```
 
-Set `DRY_RUN=false` to actually upload. The script uses only the standard library.
+`tools/publish-curseforge.py` takes the same variables with `CURSEFORGE_` names. Set
+`DRY_RUN=false` to actually upload. Both scripts use only the standard library.
 
-Credentials live in repository secrets (`MODRINTH_TOKEN`, `MODRINTH_PROJECT_ID`), never in the
-repo.
+### A note on CurseForge
+
+CurseForge identifies Minecraft versions, loaders and Java versions by opaque numeric ids rather
+than by name, and several entries can share a name across version types. Minecraft 26.2 exists
+twice: id 16498 under the Java Edition type, and 16500 under another. The script resolves ids at
+runtime and prefers the type whose slug is `minecraft-<version>`, so bumping
+`minecraft_version` does not silently upload against the wrong one.
+
+Its upload API can only add files to a project that already exists. Create the project on the
+site first, then add its numeric id as the `CURSEFORGE_PROJECT_ID` secret.
+
+Unlike Modrinth, CurseForge has no way to check whether a version is already published, so the
+duplicate guard does not cover it. Re-running a release will upload a second file.
+
+Credentials live in repository secrets, never in the repo.
 
 ## License
 

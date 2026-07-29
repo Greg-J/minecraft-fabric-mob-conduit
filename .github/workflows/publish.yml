@@ -1,15 +1,17 @@
-# Publish a release to Modrinth.
+# Publish a release to Modrinth and CurseForge.
 #
 # Triggered by pushing a version tag:
 #
 #     git tag -a v1.0.1 -m "Fix frame detection across chunk borders"
 #     git push origin v1.0.1
 #
-# The tag's annotation message becomes the Modrinth changelog, so write it for
-# players rather than for the commit log. Can also be run by hand from the
+# The tag's annotation message becomes the changelog on both sites, so write it
+# for players rather than for the commit log. Can also be run by hand from the
 # Actions tab, which is the safe way to retry a failed upload.
 #
-# Requires two repository secrets: MODRINTH_TOKEN and MODRINTH_PROJECT_ID.
+# Secrets: MODRINTH_TOKEN, MODRINTH_PROJECT_ID, CURSEFORGE_TOKEN,
+# CURSEFORGE_PROJECT_ID. A target whose project id is unset is skipped rather
+# than failing the run, so either site can be added later.
 
 name: publish
 
@@ -34,6 +36,12 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    # The secrets context is not available in step-level `if` conditions, so the
+    # project ids are lifted to env here. That is what lets a target be skipped
+    # when its id is unset rather than failing the run.
+    env:
+      MODRINTH_PROJECT_ID: ${{ secrets.MODRINTH_PROJECT_ID }}
+      CURSEFORGE_PROJECT_ID: ${{ secrets.CURSEFORGE_PROJECT_ID }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -120,9 +128,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: publish to modrinth
+        if: env.MODRINTH_PROJECT_ID != ''
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          MODRINTH_PROJECT_ID: ${{ secrets.MODRINTH_PROJECT_ID }}
           JAR_PATH: ${{ steps.jar.outputs.path }}
           MOD_VERSION: ${{ steps.props.outputs.mod_version }}
           MC_VERSION: ${{ steps.props.outputs.mc_version }}
@@ -130,3 +138,23 @@ jobs:
           VERSION_TYPE: ${{ github.event.inputs.version_type || 'release' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python3 tools/publish-modrinth.py
+
+      # Skipped until CURSEFORGE_PROJECT_ID is set. The CurseForge upload API
+      # can only add files to a project that already exists; it cannot create
+      # one, so the project has to be made on the site first and its numeric id
+      # added as a secret.
+      - name: publish to curseforge
+        if: env.CURSEFORGE_PROJECT_ID != ''
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          JAR_PATH: ${{ steps.jar.outputs.path }}
+          MOD_VERSION: ${{ steps.props.outputs.mod_version }}
+          MC_VERSION: ${{ steps.props.outputs.mc_version }}
+          CHANGELOG: ${{ steps.changelog.outputs.text }}
+          VERSION_TYPE: ${{ github.event.inputs.version_type || 'release' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python3 tools/publish-curseforge.py
+
+      - name: report skipped targets
+        if: env.CURSEFORGE_PROJECT_ID == ''
+        run: echo "::notice::CurseForge skipped, CURSEFORGE_PROJECT_ID is not set."
