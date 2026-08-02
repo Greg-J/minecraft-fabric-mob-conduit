@@ -46,7 +46,7 @@ public final class MobConduitCommand {
 				.then(Commands.literal("build")
 						.then(Commands.argument("pos", BlockPosArgument.blockPos())
 								.executes(context -> build(context, BlockPosArgument.getBlockPos(context, "pos")))))
-			.then(Commands.literal("visualize").executes(MobConduitCommand::visualize));
+					.then(Commands.literal("visualize").executes(MobConduitCommand::visualize));
 
 		dispatcher.register(root);
 	}
@@ -86,7 +86,7 @@ public final class MobConduitCommand {
 	}
 
 	/**
-	 * Draws every active conduit's coverage sphere in particles for a few seconds, so the edge
+	 * Draws every active conduit's coverage volume in particles for a few seconds, so the edge
 	 * is visible before more frame blocks go down.
 	 */
 	private static int visualize(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {

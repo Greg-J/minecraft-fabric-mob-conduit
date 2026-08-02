@@ -121,8 +121,9 @@ public final class RemovalEffects {
 				// Chunk unloaded mid-fade. Keep tracking: the light block is saved in the
 				// chunk data, and the fade resumes when the chunk loads again. Dropping the
 				// entry here strands an invisible light forever, which is the exact failure
-				// the tracking exists to prevent. Retention is bounded in practice — entries
-				// die when the chunk reloads or on clearAll.
+				// the tracking exists to prevent. The cost of retention is that isIdle()
+				// stays false, so drainRemovals keeps iterating these entries each tick until
+				// the chunk reloads or teardown — tiny, but unbounded in time.
 				continue;
 			}
 

@@ -9,15 +9,20 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Draws a conduit's coverage sphere in particles for a few seconds, so a builder can see the
+ * Draws a conduit's coverage volume in particles for a few seconds, so a builder can see the
  * edge before committing frame blocks. Pure packet work: {@code minecraft:glow} is registered
- * with {@code overrideLimiter = true} ({@code ParticleTypes.java:145}), so the ring stays
- * visible at 128 blocks and ignores the client's particle setting.
+ * with {@code overrideLimiter = true} ({@code ParticleTypes.java:145}), so the client never
+ * culls it, and it is sent with the server's matching flag so the packets actually reach a
+ * player standing at the structure — the server otherwise drops particle packets more than 32
+ * blocks from their point.
  *
  * <p>Every few ticks each visual draws one great circle, rotating through the three axis
  * planes, so the sphere reads as a sphere rather than a flat ring. Each point is a directed
  * count==0 packet with zero velocity — the only form the client places exactly
- * ({@code ClientPacketListener.handleParticleEvent}).
+ * ({@code ClientPacketListener.handleParticleEvent}) — sent with the server's
+ * {@code overrideLimiter} flag, because particle packets otherwise only reach players within
+ * 32 blocks of the point ({@code ServerLevel.java:1318,1376}); the flag raises that to 512,
+ * past the largest configurable radius.
  */
 public final class RadiusVisualizer {
 	private static final int DURATION_TICKS = 200;
@@ -63,6 +68,14 @@ public final class RadiusVisualizer {
 		return !ACTIVE.isEmpty();
 	}
 
+	/**
+	 * Drops every visual. Called on server stop: visuals hold their {@link ServerLevel}, so an
+	 * uncleared list would pin a dead level in memory and keep the tick hook hot forever.
+	 */
+	public static void clearAll() {
+		ACTIVE.clear();
+	}
+
 	public static void tick(ServerLevel level) {
 		Iterator<Visual> it = ACTIVE.iterator();
 
@@ -95,7 +108,7 @@ public final class RadiusVisualizer {
 			return;
 		}
 
-		// Rotate through the planes: xz first, then xy, then yz.
+		// Rotate through the planes (0 = xz, 1 = xy, 2 = yz) as the countdown runs down.
 		int plane = (visual.ticksLeft / BAND_INTERVAL_TICKS) % 3;
 
 		for (int i = 0; i < POINTS_PER_BAND; i++) {
@@ -106,7 +119,7 @@ public final class RadiusVisualizer {
 			double y = plane == 0 ? cy : cy + b;
 			double z = plane == 0 ? cz + a : (plane == 1 ? cz : cz + b);
 
-			level.sendParticles(ParticleTypes.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
+			level.sendParticles(ParticleTypes.GLOW, true, false, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
 		}
 	}
 
@@ -124,7 +137,7 @@ public final class RadiusVisualizer {
 		for (double ringY : new double[] {midY, topY, bottomY}) {
 			for (int i = 0; i < POINTS_PER_BAND; i++) {
 				double angle = i * (Math.PI * 2.0 / POINTS_PER_BAND);
-				level.sendParticles(ParticleTypes.GLOW,
+				level.sendParticles(ParticleTypes.GLOW, true, false,
 						cx + Math.cos(angle) * r, ringY, cz + Math.sin(angle) * r, 0, 0.0, 0.0, 0.0, 1.0);
 			}
 		}
@@ -135,7 +148,7 @@ public final class RadiusVisualizer {
 			double z = cz + Math.sin(angle) * r;
 
 			for (double y = bottomY; y <= topY; y += 8.0) {
-				level.sendParticles(ParticleTypes.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
+				level.sendParticles(ParticleTypes.GLOW, true, false, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
 			}
 		}
 	}

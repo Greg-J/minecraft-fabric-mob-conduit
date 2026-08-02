@@ -443,6 +443,7 @@ public final class ConduitStore extends SavedData {
 				if (dimDisabled) {
 					// A crystal here can never re-activate, so keeping the entry would park a
 					// suppression zone nothing can see or remove.
+					this.armedThisSession.remove(pos);
 					dropped++;
 					continue;
 				}

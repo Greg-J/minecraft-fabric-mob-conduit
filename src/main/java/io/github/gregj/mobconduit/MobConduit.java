@@ -190,6 +190,8 @@ public class MobConduit implements ModInitializer {
 	}
 
 	private static void onServerStopping(net.minecraft.server.MinecraftServer server) {
+		RadiusVisualizer.clearAll();
+
 		for (ServerLevel level : server.getAllLevels()) {
 			ConduitStore.get(level).forget(level);
 		}

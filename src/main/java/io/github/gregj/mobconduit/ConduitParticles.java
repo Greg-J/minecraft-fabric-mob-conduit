@@ -25,10 +25,13 @@ public final class ConduitParticles {
 	/**
 	 * A continuous shimmer in and around the crystal while the conduit is active.
 	 *
-	 * <p>{@code trial_spawner_detection_ominous} is registered with {@code overrideLimiter =
-	 * true} ({@code ParticleTypes.java:156}), so unlike most particles it stays visible at
-	 * distance and is not culled by the client's particle setting — which is what makes it
-	 * usable as a permanent "this thing is on" marker rather than a one-off flourish.
+	 * <p>Two flags make it usable as a permanent "this thing is on" marker. The particle type
+	 * ({@code trial_spawner_detection_ominous} by default) is registered with
+	 * {@code overrideLimiter = true} ({@code ParticleTypes.java:156}), so the client never culls
+	 * it — not at distance, not on Decreased particle settings. And it is sent with the server's
+	 * own {@code overrideLimiter} flag set, because the server only sends particle packets to
+	 * players within 32 blocks unless that flag raises the gate to 512
+	 * ({@code ServerLevel.java:1315,1376}).
 	 */
 	public static void crystalAura(ServerLevel level, BlockPos crystalPos) {
 		ModConfig config = ModConfig.get();
@@ -57,7 +60,7 @@ public final class ConduitParticles {
 			double radius = 0.15 + random.nextDouble() * 0.75;
 			double drift = 0.02 + random.nextDouble() * 0.05;
 
-			sendDirected(level, config.crystalAuraParticle(),
+			sendDirected(level, config.crystalAuraParticle(), true,
 					cx + dx * radius, cy + dy * radius, cz + dz * radius,
 					dx * drift, dy * drift, dz * drift);
 		}
@@ -88,7 +91,7 @@ public final class ConduitParticles {
 			double y = baseY + (random.nextDouble() - 0.5) * 0.5;
 			double rise = config.removalRiserSpeed() * (0.7 + random.nextDouble() * 0.6);
 
-			sendDirected(level, config.killPlumeParticle(), x, y, z,
+			sendDirected(level, config.killPlumeParticle(), true, x, y, z,
 					(random.nextDouble() - 0.5) * 0.08, rise, (random.nextDouble() - 0.5) * 0.08);
 		}
 	}
@@ -115,7 +118,7 @@ public final class ConduitParticles {
 		double baseY = crystalPos.getY() + TOP_OFFSET;
 
 		for (int i = 0; i < length; i++) {
-			level.sendParticles(config.killBeamParticle(), x, baseY + i, z, 1, 0.0, 0.0, 0.0, 0.0);
+			level.sendParticles(config.killBeamParticle(), true, false, x, baseY + i, z, 1, 0.0, 0.0, 0.0, 0.0);
 		}
 	}
 
@@ -153,7 +156,7 @@ public final class ConduitParticles {
 			double oy = face.getStepY() == 0 ? random.nextDouble() : 0.5 + face.getStepY() * 0.6;
 			double oz = face.getStepZ() == 0 ? random.nextDouble() : 0.5 + face.getStepZ() * 0.6;
 
-			sendDirected(level, config.frameDripParticle(), bx + ox, by + oy, bz + oz, 0.0, 0.0, 0.0);
+			sendDirected(level, config.frameDripParticle(), false, bx + ox, by + oy, bz + oz, 0.0, 0.0, 0.0);
 		}
 	}
 
@@ -163,9 +166,14 @@ public final class ConduitParticles {
 	 * <p>A count of zero is what makes the client read the three distance fields as a velocity
 	 * vector instead of random offsets ({@code ClientPacketListener.handleParticleEvent}). It is
 	 * the only way to aim a particle from the server.
+	 *
+	 * <p>{@code longReach} sets the server's {@code overrideLimiter} flag, which raises the
+	 * packet send gate from 32 to 512 blocks ({@code ServerLevel.java:1318,1376}). Ambient decor
+	 * (frame drips) stays short-reach so distant players are not spammed; anything whose purpose
+	 * is to be seen from across the radius goes long.
 	 */
-	private static void sendDirected(ServerLevel level, ParticleOptions particle,
+	private static void sendDirected(ServerLevel level, ParticleOptions particle, boolean longReach,
 			double x, double y, double z, double dx, double dy, double dz) {
-		level.sendParticles(particle, x, y, z, 0, dx, dy, dz, 1.0);
+		level.sendParticles(particle, longReach, false, x, y, z, 0, dx, dy, dz, 1.0);
 	}
 }

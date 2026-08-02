@@ -198,7 +198,7 @@ classpath.
 | `removal_light_enabled` | `true` | Master switch for the light-flash stage of erasure. |
 | `removal_particle` / `removal_secondary_particle` / `removal_riser_particle` | `soul_fire_flame` / `soul` / `soul_fire_flame` | Particle ids per effect; any `SimpleParticleType`. |
 | `crystal_aura_enabled` / `_count` / `_interval_ticks` | `true` / `6` / `4` | Continuous shimmer around the crystal. |
-| `crystal_aura_particle` | `trial_spawner_detection_ominous` | Chosen for `overrideLimiter = true`: visible at distance, never culled. |
+| `crystal_aura_particle` | `trial_spawner_detection_ominous` | Never culled client-side; also sent with the server's long-reach flag. |
 | `kill_plume_particle` / `kill_plume_count` | `sculk_soul` / `0` | Forcefield-kill plume off the conduit top; 0 = off. |
 | `kill_beam_particle` / `kill_beam_length` | `sonic_boom` / `0` | Vertical beam per forcefield kill; 0 = off. |
 | `frame_drips_enabled` / `_count` / `_interval_ticks` | `true` / `3` / `8` | Crying-obsidian-style drips off the frame. |

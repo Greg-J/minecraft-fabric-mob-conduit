@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerLevel;
 
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 
+import java.util.WeakHashMap;
+
 /**
  * Turns an end crystal's tick into an activation decision.
  *
@@ -25,7 +27,7 @@ public final class ConduitDetector {
 	 * suppression zone that persists forever. Weak keys: entries die with the crystal. Crystal
 	 * ticks run on the server thread, so no synchronization.
 	 */
-	private static final java.util.WeakHashMap<EndCrystal, BlockPos> LAST_VALIDATED_AT = new java.util.WeakHashMap<>();
+	private static final WeakHashMap<EndCrystal, BlockPos> LAST_VALIDATED_AT = new WeakHashMap<>();
 
 	private ConduitDetector() {
 	}
