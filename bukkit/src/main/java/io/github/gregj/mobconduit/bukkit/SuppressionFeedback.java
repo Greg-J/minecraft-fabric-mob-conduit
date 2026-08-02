@@ -16,6 +16,25 @@ public final class SuppressionFeedback {
 	private SuppressionFeedback() {
 	}
 
+	/** "cave_spider" → "Cave Spider", since Bukkit's getName() is the raw lowercase id. */
+	private static String prettify(String rawName) {
+		StringBuilder pretty = new StringBuilder(rawName.length());
+
+		for (String word : rawName.split("_")) {
+			if (word.isEmpty()) {
+				continue;
+			}
+
+			if (pretty.length() > 0) {
+				pretty.append(' ');
+			}
+
+			pretty.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+		}
+
+		return pretty.toString();
+	}
+
 	public static void onVeto(World world, Entity entity, Conduit conduit) {
 		ModConfig.FeedbackMode mode = ModConfig.get().suppressionFeedback();
 
@@ -34,7 +53,7 @@ public final class SuppressionFeedback {
 			return;
 		}
 
-		String message = "Mob Conduit suppressed a " + entity.getType().getName();
+		String message = "Mob Conduit suppressed a " + prettify(entity.getType().getName());
 
 		for (Player player : world.getPlayers()) {
 			if (conduit.covers(player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ())) {

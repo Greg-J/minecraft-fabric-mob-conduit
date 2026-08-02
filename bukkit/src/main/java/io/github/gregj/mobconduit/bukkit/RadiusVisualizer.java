@@ -123,8 +123,9 @@ public final class RadiusVisualizer {
 	 * vertical connectors at eight perimeter points, so the full-height column is visible.
 	 */
 	private static void emitCylinderBand(World world, double cx, double cy, double cz, double r) {
+		// getMaxHeight is one past the topmost block, so the last reachable Y is one below it.
 		double minY = world.getMinHeight();
-		double maxY = world.getMaxHeight();
+		double maxY = world.getMaxHeight() - 1.0;
 		double midY = Math.max(minY, Math.min(maxY, cy));
 		double topY = Math.max(minY, Math.min(maxY, cy + r));
 		double bottomY = Math.max(minY, Math.min(maxY, cy - r));

@@ -49,6 +49,8 @@ public final class MobConduitPlugin extends JavaPlugin {
 			}
 		}
 
+		// A repeating task that throws is cancelled by the scheduler — one bad world would
+		// silently kill detection, drains and the sidebar forever. Contain per world instead.
 		Bukkit.getScheduler().runTaskTimer(this, this::tick, 1L, 1L);
 
 		warnIfRadiusExceedsSimulationDistance();
@@ -71,20 +73,28 @@ public final class MobConduitPlugin extends JavaPlugin {
 	}
 
 	private void tick() {
-		ConduitDetector.tick();
+		try {
+			ConduitDetector.tick();
+		} catch (RuntimeException e) {
+			getLogger().warning("detector tick failed: " + e);
+		}
 
 		for (World world : Bukkit.getWorlds()) {
-			if (RadiusVisualizer.isActive()) {
-				RadiusVisualizer.tick(world);
-			}
+			try {
+				if (RadiusVisualizer.isActive()) {
+					RadiusVisualizer.tick(world);
+				}
 
-			// Also runs while effects are still in flight, not just while a conduit is
-			// active, so a conduit destroyed mid-erasure still gets its light blocks faded
-			// out and cleared.
-			if (ConduitStore.anyActive() || ConduitStore.anyPendingEffects()) {
-				ConduitStore store = ConduitStore.get(world);
-				store.drainDeactivations(world);
-				store.drainRemovals(world);
+				// Also runs while effects are still in flight, not just while a conduit is
+				// active, so a conduit destroyed mid-erasure still gets its light blocks faded
+				// out and cleared.
+				if (ConduitStore.anyActive() || ConduitStore.anyPendingEffects()) {
+					ConduitStore store = ConduitStore.get(world);
+					store.drainDeactivations(world);
+					store.drainRemovals(world);
+				}
+			} catch (RuntimeException e) {
+				getLogger().warning("tick failed for world " + world.getName() + ": " + e);
 			}
 		}
 

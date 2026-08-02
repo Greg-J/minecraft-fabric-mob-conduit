@@ -41,4 +41,8 @@ processResources {
 
 jar {
 	archiveBaseName = 'mob-conduit-bukkit'
+
+	from("$rootDir/LICENSE") {
+		rename { "${it}_mob-conduit" }
+	}
 }

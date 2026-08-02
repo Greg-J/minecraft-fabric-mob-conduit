@@ -35,9 +35,11 @@ sourceSets {
 		}
 		resources {
 			// Shared resources: the shared mob-conduit.mixins.json is declared alongside the
-			// NeoForge-only config in neoforge.mods.toml. fabric.mod.json comes along and is
-			// ignored by NeoForge.
+			// NeoForge-only config in neoforge.mods.toml. fabric.mod.json is excluded — a
+			// standalone NeoForge jar must not parse as a broken Fabric mod; the uber-jar
+			// gets the descriptor from the Fabric jar instead.
 			srcDir '../src/main/resources'
+			exclude 'fabric.mod.json'
 		}
 	}
 }
@@ -76,6 +78,12 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
+}
+
+jar {
+	from("$rootDir/LICENSE") {
+		rename { "${it}_mob-conduit" }
+	}
 }
 
 // nfrt-gradle's downloadAssets hardcodes a Java 21 toolchain lookup, which fails on machines

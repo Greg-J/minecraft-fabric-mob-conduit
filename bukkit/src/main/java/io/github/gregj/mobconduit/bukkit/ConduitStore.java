@@ -9,10 +9,10 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Light;
-import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Raider;
+import org.bukkit.entity.Tameable;
 
 import java.io.File;
 import java.io.IOException;
@@ -141,8 +141,13 @@ public final class ConduitStore {
 	// --- persistence --------------------------------------------------------------------
 
 	private static File storeFile(World world) {
-		// World names are filesystem-friendly in practice, but nothing in the API guarantees
-		// it; strip anything that could escape the folder.
+		// Keyed by UID, not name: a renamed world must not orphan its conduits.
+		return new File(new File(MobConduitPlugin.instance().getDataFolder(), "worlds"),
+				world.getUID() + ".json");
+	}
+
+	private static File legacyStoreFile(World world) {
+		// Pre-UID naming, kept so worlds saved before the switch still load.
 		String name = world.getName().replaceAll("[^A-Za-z0-9._-]", "_");
 		return new File(new File(MobConduitPlugin.instance().getDataFolder(), "worlds"), name + ".json");
 	}
@@ -150,6 +155,10 @@ public final class ConduitStore {
 	private static ConduitStore loadFromDisk(World world) {
 		ConduitStore store = new ConduitStore();
 		File file = storeFile(world);
+
+		if (!file.isFile() && legacyStoreFile(world).isFile()) {
+			file = legacyStoreFile(world);
+		}
 
 		if (file.isFile()) {
 			try (Reader reader = Files.newBufferedReader(file.toPath())) {
@@ -537,7 +546,9 @@ public final class ConduitStore {
 			return true;
 		}
 
-		if (mob instanceof AbstractHorse horse && horse.isTamed()) {
+		// Tameable, not AbstractHorse: the zombie nautilus mounts this sweep targets are
+		// Tameable but not horses, and a tamed one is as much a player's pet as a tamed horse.
+		if (mob instanceof Tameable tameable && tameable.isTamed()) {
 			return true;
 		}
 
