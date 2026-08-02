@@ -28,8 +28,9 @@ import java.util.List;
  * relights. That is deliberate — it only happens on erasure, and {@code max_concurrent_lights}
  * is there if a server ever needs to bound it.
  *
- * <p>Placed lights are tracked so they can be cleared on shutdown. Without that, stopping the
- * server mid-fade would strand invisible light blocks in the world that a player cannot find.
+ * <p>Placed lights are tracked so they can be cleared on shutdown and resumed after a chunk
+ * unload. One gap remains by construction: a light fading in a chunk that is already unloaded
+ * when the server stops is saved with the chunk and never cleared.
  */
 public final class RemovalEffects {
 	/**
@@ -91,7 +92,15 @@ public final class RemovalEffects {
 	}
 
 	public int lightCount() {
-		return this.armed.size() + this.fading.size();
+		int count = this.fading.size();
+
+		for (Doomed doomed : this.armed) {
+			if (doomed.lightPos != null) {
+				count++;
+			}
+		}
+
+		return count;
 	}
 
 	/** Advances all three stages by one tick. Ordered late-stage first so lights recycle promptly. */
@@ -107,6 +116,15 @@ public final class RemovalEffects {
 
 		while (it.hasNext()) {
 			FadingLight light = it.next();
+
+			if (!level.isLoaded(light.pos)) {
+				// Chunk unloaded mid-fade. Keep tracking: the light block is saved in the
+				// chunk data, and the fade resumes when the chunk loads again. Dropping the
+				// entry here strands an invisible light forever, which is the exact failure
+				// the tracking exists to prevent. Retention is bounded in practice — entries
+				// die when the chunk reloads or on clearAll.
+				continue;
+			}
 
 			if (--light.ticksToNextStep > 0) {
 				continue;
@@ -188,6 +206,12 @@ public final class RemovalEffects {
 		}
 
 		BlockPos pos = BlockPos.containing(mob.getX(), mob.getY() + mob.getBbHeight() + 0.5, mob.getZ());
+
+		if (!level.isLoaded(pos)) {
+			// getBlockState on a non-FULL chunk sync-loads it on the server thread; the sweep
+			// can reach mobs whose head block sits in an inaccessible section.
+			return null;
+		}
 
 		// Only ever replace air, so clearing back to air later is always correct.
 		if (!level.isEmptyBlock(pos)) {
