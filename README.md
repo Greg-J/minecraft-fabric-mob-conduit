@@ -94,6 +94,7 @@ outside every radius, and how many were seen while no conduit was active.
 | `frame_block` | `minecraft:netherite_block` | Any vanilla block id. Validated at load; falls back to the default if it does not resolve. |
 | `radius_min` | `64` | Radius at `frame_threshold_min`. |
 | `radius_max` | `128` | Radius at `frame_threshold_max`. 128 blocks is 8 chunks. |
+| `radius_shape` | `sphere` | `sphere` = 3D radius like vanilla's conduit; `cylinder` = same horizontal radius, full height — the usual choice for spawn-proofing a base. |
 | `frame_threshold_min` | `16` | Frame blocks needed to activate. |
 | `frame_threshold_max` | `42` | Frame blocks for maximum radius, and the geometric maximum. |
 

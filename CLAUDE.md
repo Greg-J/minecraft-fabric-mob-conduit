@@ -177,6 +177,7 @@ classpath.
 | `frame_block` | `minecraft:netherite_block` | Any vanilla block ID. Validate at load. |
 | `radius_min` | `64` | Radius at the minimum frame threshold. |
 | `radius_max` | `128` | Radius at full frame. 128 blocks is 8 chunks, inside default simulation distance. |
+| `radius_shape` | `sphere` | `sphere` = 3D radius like vanilla's conduit; `cylinder` = same horizontal radius, full height. |
 | `frame_threshold_min` | `16` | Vanilla's `MIN_ACTIVE_SIZE` (`ConduitBlockEntity.java:39`). |
 | `frame_threshold_max` | `42` | Vanilla's `MIN_KILL_SIZE` (`:40`), and the geometric maximum — the shape predicate at `:141-159` yields exactly 42 positions. |
 | `forcefield` | `true` | Also erase hostiles that wander in. See above. |

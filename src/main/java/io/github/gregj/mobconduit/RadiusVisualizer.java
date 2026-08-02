@@ -28,12 +28,14 @@ public final class RadiusVisualizer {
 		private final ServerLevel level;
 		private final BlockPos centre;
 		private final int radius;
+		private final boolean cylindrical;
 		private int ticksLeft;
 
-		private Visual(ServerLevel level, BlockPos centre, int radius, int ticksLeft) {
+		private Visual(ServerLevel level, BlockPos centre, int radius, boolean cylindrical, int ticksLeft) {
 			this.level = level;
 			this.centre = centre;
 			this.radius = radius;
+			this.cylindrical = cylindrical;
 			this.ticksLeft = ticksLeft;
 		}
 	}
@@ -49,7 +51,7 @@ public final class RadiusVisualizer {
 
 		for (Conduit conduit : conduits) {
 			if (conduit.radius() > 0) {
-				ACTIVE.add(new Visual(level, conduit.pos(), conduit.radius(), DURATION_TICKS));
+				ACTIVE.add(new Visual(level, conduit.pos(), conduit.radius(), conduit.cylindrical(), DURATION_TICKS));
 				armed++;
 			}
 		}
@@ -83,12 +85,18 @@ public final class RadiusVisualizer {
 	}
 
 	private static void emitBand(ServerLevel level, Visual visual) {
-		// Rotate through the planes: xz first, then xy, then yz.
-		int plane = (visual.ticksLeft / BAND_INTERVAL_TICKS) % 3;
 		double cx = visual.centre.getX() + 0.5;
 		double cy = visual.centre.getY() + 0.5;
 		double cz = visual.centre.getZ() + 0.5;
 		double r = visual.radius;
+
+		if (visual.cylindrical) {
+			emitCylinderBand(level, cx, cy, cz, r);
+			return;
+		}
+
+		// Rotate through the planes: xz first, then xy, then yz.
+		int plane = (visual.ticksLeft / BAND_INTERVAL_TICKS) % 3;
 
 		for (int i = 0; i < POINTS_PER_BAND; i++) {
 			double angle = i * (Math.PI * 2.0 / POINTS_PER_BAND);
@@ -99,6 +107,36 @@ public final class RadiusVisualizer {
 			double z = plane == 0 ? cz + a : (plane == 1 ? cz : cz + b);
 
 			level.sendParticles(ParticleTypes.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
+		}
+	}
+
+	/**
+	 * A cylinder reads as three rings — crystal height and ±r, clamped into the world — plus
+	 * vertical connectors at eight perimeter points, so the full-height column is visible.
+	 */
+	private static void emitCylinderBand(ServerLevel level, double cx, double cy, double cz, double r) {
+		double minY = level.getMinY();
+		double maxY = level.getMaxY();
+		double midY = Math.max(minY, Math.min(maxY, cy));
+		double topY = Math.max(minY, Math.min(maxY, cy + r));
+		double bottomY = Math.max(minY, Math.min(maxY, cy - r));
+
+		for (double ringY : new double[] {midY, topY, bottomY}) {
+			for (int i = 0; i < POINTS_PER_BAND; i++) {
+				double angle = i * (Math.PI * 2.0 / POINTS_PER_BAND);
+				level.sendParticles(ParticleTypes.GLOW,
+						cx + Math.cos(angle) * r, ringY, cz + Math.sin(angle) * r, 0, 0.0, 0.0, 0.0, 1.0);
+			}
+		}
+
+		for (int i = 0; i < 8; i++) {
+			double angle = i * (Math.PI / 4.0);
+			double x = cx + Math.cos(angle) * r;
+			double z = cz + Math.sin(angle) * r;
+
+			for (double y = bottomY; y <= topY; y += 8.0) {
+				level.sendParticles(ParticleTypes.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0);
+			}
 		}
 	}
 }

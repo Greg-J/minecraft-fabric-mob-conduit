@@ -21,12 +21,14 @@ public final class Conduit {
 	private final int frameCount;
 	private final int radius;
 	private final long radiusSq;
+	private final boolean cylindrical;
 
 	public Conduit(BlockPos pos, int frameCount) {
 		this.pos = pos.immutable();
 		this.frameCount = frameCount;
 		this.radius = ModConfig.get().radiusFor(frameCount);
 		this.radiusSq = (long) this.radius * this.radius;
+		this.cylindrical = ModConfig.get().radiusShape() == ModConfig.RadiusShape.CYLINDER;
 	}
 
 	public BlockPos pos() {
@@ -41,11 +43,24 @@ public final class Conduit {
 		return this.radius;
 	}
 
-	/** Spherical, matching how vanilla's conduit applies its own effect radius. */
+	public boolean cylindrical() {
+		return this.cylindrical;
+	}
+
+	/**
+	 * Spherical by default, matching how vanilla's conduit applies its own effect radius. A
+	 * cylinder drops the Y term entirely: same horizontal radius, full height.
+	 */
 	public boolean covers(int x, int y, int z) {
 		long dx = x - this.pos.getX();
-		long dy = y - this.pos.getY();
 		long dz = z - this.pos.getZ();
-		return dx * dx + dy * dy + dz * dz <= this.radiusSq;
+		long horizontal = dx * dx + dz * dz;
+
+		if (this.cylindrical) {
+			return horizontal <= this.radiusSq;
+		}
+
+		long dy = y - this.pos.getY();
+		return horizontal + dy * dy <= this.radiusSq;
 	}
 }

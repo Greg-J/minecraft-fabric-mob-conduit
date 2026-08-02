@@ -65,6 +65,12 @@ public final class ModConfig {
 	/** How a vetoed spawn announces itself to players in range: off, actionbar or particle. */
 	private String suppressionFeedback = "actionbar";
 
+	/**
+	 * Coverage volume: {@code sphere} (3D radius, vanilla-conduit-like) or {@code cylinder}
+	 * (same horizontal radius, full height — what base spawn-proofing usually wants).
+	 */
+	private String radiusShape = "sphere";
+
 	/** Dimension ids where conduits do nothing, e.g. ["minecraft:the_end"]. */
 	private List<String> disabledDimensions = List.of();
 
@@ -156,6 +162,7 @@ public final class ModConfig {
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
 	private transient Set<EntityType<?>> resolvedSuppressExemptTypes = Set.of();
 	private transient FeedbackMode resolvedSuppressionFeedback = FeedbackMode.OFF;
+	private transient RadiusShape resolvedRadiusShape = RadiusShape.SPHERE;
 	private transient Set<Identifier> resolvedDisabledDimensions = Set.of();
 
 	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.TRIAL_SPAWNER_DETECTED_PLAYER_OMINOUS;
@@ -175,6 +182,12 @@ public final class ModConfig {
 		OFF,
 		ACTIONBAR,
 		PARTICLE
+	}
+
+	/** Coverage volume; see {@code radius_shape}. */
+	public enum RadiusShape {
+		SPHERE,
+		CYLINDER
 	}
 
 	private static Path configPath() {
@@ -356,7 +369,8 @@ public final class ModConfig {
 
 		this.resolvedExemptTypes = resolveTypeSet(this.removalExemptTypes, "removal_exempt_types");
 		this.resolvedSuppressExemptTypes = resolveTypeSet(this.suppressExemptTypes, "suppress_exempt_types");
-		this.resolvedSuppressionFeedback = resolveFeedback(this.suppressionFeedback);
+		this.resolvedSuppressionFeedback = resolveEnum(this.suppressionFeedback, FeedbackMode.class, "suppression_feedback", FeedbackMode.OFF);
+		this.resolvedRadiusShape = resolveEnum(this.radiusShape, RadiusShape.class, "radius_shape", RadiusShape.SPHERE);
 		this.resolvedDisabledDimensions = resolveDimensions(this.disabledDimensions);
 	}
 
@@ -379,12 +393,13 @@ public final class ModConfig {
 		return Set.copyOf(resolved);
 	}
 
-	private static FeedbackMode resolveFeedback(String name) {
+	private static <E extends Enum<E>> E resolveEnum(String name, Class<E> type, String key, E fallback) {
 		try {
-			return FeedbackMode.valueOf(name.toUpperCase(java.util.Locale.ROOT));
+			return Enum.valueOf(type, name.toUpperCase(java.util.Locale.ROOT));
 		} catch (IllegalArgumentException | NullPointerException e) {
-			MobConduit.LOGGER.error("suppression_feedback: '{}' is not one of off, actionbar, particle; falling back to off", name);
-			return FeedbackMode.OFF;
+			MobConduit.LOGGER.error("{}: '{}' is not one of {}; falling back to {}",
+					key, name, java.util.Arrays.toString(type.getEnumConstants()).toLowerCase(java.util.Locale.ROOT), fallback.name().toLowerCase(java.util.Locale.ROOT));
+			return fallback;
 		}
 	}
 
@@ -532,6 +547,10 @@ public final class ModConfig {
 
 	public FeedbackMode suppressionFeedback() {
 		return this.resolvedSuppressionFeedback;
+	}
+
+	public RadiusShape radiusShape() {
+		return this.resolvedRadiusShape;
 	}
 
 	public boolean isDimensionDisabled(Identifier dimension) {

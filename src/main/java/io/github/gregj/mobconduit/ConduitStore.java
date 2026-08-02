@@ -342,7 +342,12 @@ public final class ConduitStore extends SavedData {
 		}
 
 		ModConfig config = ModConfig.get();
-		AABB bounds = new AABB(conduit.pos()).inflate(conduit.radius());
+		AABB bounds = conduit.cylindrical()
+				// A cylinder reaches the whole column; querying the sphere's AABB would scan
+				// entity sections that can never match the covers() test.
+				? new AABB(conduit.pos().getX() - conduit.radius(), level.getMinY(), conduit.pos().getZ() - conduit.radius(),
+						conduit.pos().getX() + conduit.radius(), level.getMaxY(), conduit.pos().getZ() + conduit.radius())
+				: new AABB(conduit.pos()).inflate(conduit.radius());
 
 		List<Mob> found = level.getEntitiesOfClass(Mob.class, bounds, mob ->
 				Hostiles.isSuppressible(mob)

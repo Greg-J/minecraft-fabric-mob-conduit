@@ -205,7 +205,8 @@ public final class MobConduitCommand {
 
 		for (Conduit conduit : conduits) {
 			source.sendSuccess(() -> Component.literal("  " + conduit.pos().toShortString()
-					+ " - " + conduit.frameCount() + " frame blocks, radius " + conduit.radius()), false);
+					+ " - " + conduit.frameCount() + " frame blocks, radius " + conduit.radius()
+					+ (conduit.cylindrical() ? " (cylinder)" : "")), false);
 		}
 
 		int pending = store.pendingRemovalCount();
