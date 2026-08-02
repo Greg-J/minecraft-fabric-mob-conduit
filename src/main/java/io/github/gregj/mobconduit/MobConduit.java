@@ -90,7 +90,7 @@ public class MobConduit implements ModInitializer {
 			return true;
 		}
 
-		if (!Hostiles.isSuppressible(entity)) {
+		if (!Hostiles.isSuppressible(entity) || config.isExemptFromSuppression(entity.getType())) {
 			return true;
 		}
 

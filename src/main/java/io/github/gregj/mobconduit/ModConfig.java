@@ -59,6 +59,9 @@ public final class ModConfig {
 			"minecraft:wither", "minecraft:ender_dragon", "minecraft:warden", "minecraft:elder_guardian");
 	private int removalBudgetPerTick = 32;
 
+	/** Entity ids the conduit leaves entirely alone — neither suppressed nor swept. */
+	private List<String> suppressExemptTypes = List.of();
+
 	/** How a vetoed spawn announces itself to players in range: off, actionbar or particle. */
 	private String suppressionFeedback = "actionbar";
 
@@ -151,6 +154,7 @@ public final class ModConfig {
 
 	private transient Block resolvedFrameBlock = Blocks.NETHERITE_BLOCK;
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
+	private transient Set<EntityType<?>> resolvedSuppressExemptTypes = Set.of();
 	private transient FeedbackMode resolvedSuppressionFeedback = FeedbackMode.OFF;
 	private transient Set<Identifier> resolvedDisabledDimensions = Set.of();
 
@@ -350,24 +354,29 @@ public final class ModConfig {
 		this.removalLightFadeTicks = clamp(this.removalLightFadeTicks, 15, 600);
 		this.maxConcurrentLights = clamp(this.maxConcurrentLights, 0, 8192);
 
-		Set<EntityType<?>> exempt = new HashSet<>();
+		this.resolvedExemptTypes = resolveTypeSet(this.removalExemptTypes, "removal_exempt_types");
+		this.resolvedSuppressExemptTypes = resolveTypeSet(this.suppressExemptTypes, "suppress_exempt_types");
+		this.resolvedSuppressionFeedback = resolveFeedback(this.suppressionFeedback);
+		this.resolvedDisabledDimensions = resolveDimensions(this.disabledDimensions);
+	}
 
-		if (this.removalExemptTypes != null) {
-			for (String name : this.removalExemptTypes) {
+	private static Set<EntityType<?>> resolveTypeSet(List<String> names, String key) {
+		Set<EntityType<?>> resolved = new HashSet<>();
+
+		if (names != null) {
+			for (String name : names) {
 				Identifier id = tryParse(name);
 
 				if (id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id)) {
-					MobConduit.LOGGER.error("removal_exempt_types: '{}' is not a known entity type; ignoring", name);
+					MobConduit.LOGGER.error("{}: '{}' is not a known entity type; ignoring", key, name);
 					continue;
 				}
 
-				exempt.add(BuiltInRegistries.ENTITY_TYPE.getValue(id));
+				resolved.add(BuiltInRegistries.ENTITY_TYPE.getValue(id));
 			}
 		}
 
-		this.resolvedExemptTypes = Set.copyOf(exempt);
-		this.resolvedSuppressionFeedback = resolveFeedback(this.suppressionFeedback);
-		this.resolvedDisabledDimensions = resolveDimensions(this.disabledDimensions);
+		return Set.copyOf(resolved);
 	}
 
 	private static FeedbackMode resolveFeedback(String name) {
@@ -515,6 +524,10 @@ public final class ModConfig {
 
 	public boolean isExemptFromRemoval(EntityType<?> type) {
 		return this.resolvedExemptTypes.contains(type);
+	}
+
+	public boolean isExemptFromSuppression(EntityType<?> type) {
+		return this.resolvedSuppressExemptTypes.contains(type);
 	}
 
 	public FeedbackMode suppressionFeedback() {

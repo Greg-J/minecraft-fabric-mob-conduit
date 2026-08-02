@@ -347,6 +347,7 @@ public final class ConduitStore extends SavedData {
 		List<Mob> found = level.getEntitiesOfClass(Mob.class, bounds, mob ->
 				Hostiles.isSuppressible(mob)
 						&& !mob.isRemoved()
+						&& !config.isExemptFromSuppression(mob.getType())
 						&& !isProtected(config, mob)
 						&& conduit.covers(mob.getBlockX(), mob.getBlockY(), mob.getBlockZ()));
 
