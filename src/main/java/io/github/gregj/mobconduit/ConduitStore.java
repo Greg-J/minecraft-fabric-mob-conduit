@@ -113,10 +113,10 @@ public final class ConduitStore extends SavedData {
 	}
 
 	/**
-	 * Registers or updates a conduit. Returns true when this activated a conduit that was not
-	 * already active at that position, which is what triggers the one-time mob sweep.
+	 * Registers or updates a conduit, running the one-time arming (sound, base light, sweep)
+	 * the first time each position activates in a server session.
 	 */
-	public boolean activate(ServerLevel level, BlockPos pos, int frameCount) {
+	public void activate(ServerLevel level, BlockPos pos, int frameCount) {
 		Conduit existing = find(pos);
 		boolean isNew = existing == null;
 
@@ -138,8 +138,6 @@ public final class ConduitStore extends SavedData {
 			lightBase(level, pos);
 			queueRemovalSweep(level, find(pos));
 		}
-
-		return isNew;
 	}
 
 	/**
@@ -229,6 +227,7 @@ public final class ConduitStore extends SavedData {
 			this.effects.clearAll(level);
 		}
 
+		syncEffectsFlag();
 		reindex();
 		setDirty();
 		return true;
@@ -392,10 +391,6 @@ public final class ConduitStore extends SavedData {
 		}
 	}
 
-	public boolean hasPendingEffects() {
-		return !this.effects.isIdle();
-	}
-
 	public int pendingRemovalCount() {
 		return this.effects.pendingCount();
 	}
@@ -419,9 +414,23 @@ public final class ConduitStore extends SavedData {
 				continue;
 			}
 
+			if (level.getEntitiesOfClass(EndCrystal.class, new AABB(pos)).isEmpty()) {
+				// The frame is intact but the crystal is gone — teleported, data-edited, or
+				// removed by another mod — so nothing will ever tick this conduit again.
+				restoreBase(level, pos);
+				this.armedThisSession.remove(pos);
+				dropped++;
+				continue;
+			}
+
 			int frameCount = FrameShape.count(level, pos, config.frameBlock());
 
 			if (frameCount < config.frameThresholdMin()) {
+				// Same teardown as deactivate: without it a frame_block change strands the
+				// light block that replaced the obsidian, and a rebuild re-activates silently
+				// because the position is still in armedThisSession.
+				restoreBase(level, pos);
+				this.armedThisSession.remove(pos);
 				dropped++;
 				continue;
 			}
