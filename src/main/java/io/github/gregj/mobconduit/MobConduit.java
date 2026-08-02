@@ -65,6 +65,7 @@ public class MobConduit implements ModInitializer {
 			if (entity instanceof SkeletonHorse horse && horse.isTrap()
 					&& ConduitStore.anyActive()
 					&& ConduitStore.get(level).suppresses(entity.blockPosition())) {
+				SpawnStats.HOSTILE_OTHER_REASON.incrementAndGet();
 				SpawnStats.SUPPRESSED.incrementAndGet();
 				return vetoSpawn(entity);
 			}
