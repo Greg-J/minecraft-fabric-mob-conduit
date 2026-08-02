@@ -59,7 +59,7 @@ spherical, measured from the crystal.
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3+ for Minecraft 26.2 on your server.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.156.0+26.2 in `mods/`.
-3. Put `mob-conduit-1.1.0.jar` in `mods/`.
+3. Put `mob-conduit-1.2.0.jar` in `mods/`.
 4. Start the server. Requires **Java 25**.
 
 Nothing is installed on the client.
