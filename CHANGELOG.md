@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.3.0
+
+**One jar, four loaders.** Mob Conduit now runs on Fabric, NeoForge, Paper and Spigot from a
+single codebase — and a single `mob-conduit-1.3.0-all.jar` that loads on all of them.
+
+- **NeoForge:** the full mod, unchanged, via a small adapter (`EntityJoinLevelEvent` is the
+  same shape as Fabric's spawn hook; two mixins replicate Fabric's spawn-reason capture).
+- **Paper / Spigot:** a complete sibling implementation as a plugin — no mixins needed.
+  `CreatureSpawnEvent`'s richer spawn reasons mean raids, patrols, village sieges and
+  nether-portal piglins are recognized explicitly on this platform. Everything carries over:
+  forcefield erasure, hologram, visualize, suppression feedback, sidebar, all commands,
+  `radius_shape`, `disabled_dimensions`, `suppress_exempt_types`. Paper gets Adventure action
+  bars; Spigot gets the legacy fallback.
+- Architecture: loader-neutral core behind a small `Platform` SPI in `src/main`, the NeoForge
+  adapter module in `neoforge/`, the Bukkit plugin module in `bukkit/`.
+- Behavior fixes from the port's review: tamed mounts (any `Tameable`, not just horses) are
+  never swept on Bukkit; suppression feedback prints proper mob names; the Bukkit tick
+  pipeline survives a per-world failure; NeoForge jar no longer mis-parses on Fabric;
+  world-rename-safe persistence on Bukkit.
+
+Same rules as ever: server-side only, nothing registered, vanilla clients just connect.
+Minecraft 26.2, Java 25. NeoForge 26.2.x (beta builds) or Fabric Loader 0.19.3+/Fabric API or
+any recent Paper/Spigot 26.2.
+
 ## 1.2.0
 
 A full audit, seven bug fixes, and a feature pass grounded in what players ask for from
