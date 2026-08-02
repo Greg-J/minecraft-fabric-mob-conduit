@@ -1,0 +1,44 @@
+// Bukkit platform module. Re-implements the mod against the pure Bukkit API (Paper first,
+// Spigot-compatible). See docs/superpowers/specs/2026-08-02-multi-loader-design.md §3.
+plugins {
+	id 'java-library'
+}
+
+// Same version as the root (Fabric) project: gradle.properties mod_version.
+version = rootProject.version
+
+repositories {
+	maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+	mavenCentral()
+}
+
+dependencies {
+	// paper-api is a superset of spigot-api and transitively brings gson, adventure and
+	// bungeecord-chat. Paper-only API (Adventure audiences, Entity#getEntitySpawnReason,
+	// Server#getCommandMap) is referenced only from code paths reached behind a runtime
+	// Paper check, so the jar still loads on plain Spigot.
+	compileOnly 'io.papermc.paper:paper-api:26.2.build.91-stable'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.release = 25
+	options.encoding = 'UTF-8'
+}
+
+processResources {
+	def projectVersion = project.version
+	inputs.property 'version', projectVersion
+
+	filesMatching(['plugin.yml', 'paper-plugin.yml']) {
+		expand 'version': projectVersion
+	}
+}
+
+jar {
+	archiveBaseName = 'mob-conduit-bukkit'
+}
