@@ -123,9 +123,9 @@ public final class ConduitStore extends SavedData {
 	 */
 	public void activate(ServerLevel level, BlockPos pos, int frameCount) {
 		Conduit existing = find(pos);
-		boolean isNew = existing == null;
+		boolean changed = existing == null || existing.frameCount() != frameCount;
 
-		if (isNew || existing.frameCount() != frameCount) {
+		if (changed) {
 			if (existing != null) {
 				this.conduits.remove(existing);
 			}
@@ -138,10 +138,18 @@ public final class ConduitStore extends SavedData {
 		// Keyed on the session, not on isNew: after a restart a conduit loads back already
 		// present, and gating the sweep on isNew meant it never ran again. Anything that piled
 		// up while the server was down would sit inside the radius forever.
-		if (this.armedThisSession.add(pos.immutable())) {
+		boolean armedNow = this.armedThisSession.add(pos.immutable());
+
+		if (armedNow) {
 			ConduitSounds.activate(level, pos);
 			lightBase(level, pos);
 			queueRemovalSweep(level, find(pos));
+		}
+
+		if (changed || armedNow) {
+			// Chunk reload and restart both arrive here, and both can meet a hologram restored
+			// from disk; show() dedups, so exactly one survives.
+			Holograms.show(level, find(pos));
 		}
 	}
 
@@ -225,6 +233,7 @@ public final class ConduitStore extends SavedData {
 		this.armedThisSession.remove(pos);
 		ConduitSounds.deactivate(level, pos);
 		restoreBase(level, pos);
+		Holograms.remove(level, pos);
 
 		if (this.conduits.isEmpty()) {
 			// Nothing left to erase for, and the tick hook is gated on an active conduit
@@ -455,6 +464,7 @@ public final class ConduitStore extends SavedData {
 
 			if (dimDisabled) {
 				restoreBase(level, pos);
+				Holograms.remove(level, pos);
 				this.armedThisSession.remove(pos);
 				dropped++;
 				continue;
@@ -464,6 +474,7 @@ public final class ConduitStore extends SavedData {
 				// The frame is intact but the crystal is gone — teleported, data-edited, or
 				// removed by another mod — so nothing will ever tick this conduit again.
 				restoreBase(level, pos);
+				Holograms.remove(level, pos);
 				this.armedThisSession.remove(pos);
 				dropped++;
 				continue;
@@ -476,12 +487,17 @@ public final class ConduitStore extends SavedData {
 				// light block that replaced the obsidian, and a rebuild re-activates silently
 				// because the position is still in armedThisSession.
 				restoreBase(level, pos);
+				Holograms.remove(level, pos);
 				this.armedThisSession.remove(pos);
 				dropped++;
 				continue;
 			}
 
-			survivors.add(new Conduit(pos, frameCount));
+			Conduit survivor = new Conduit(pos, frameCount);
+			survivors.add(survivor);
+			// A radius edit re-derives the conduit without an activation, so the hologram's
+			// text would go stale; unloaded survivors self-heal on the crystal's next tick.
+			Holograms.refresh(level, survivor);
 		}
 
 		this.conduits.clear();

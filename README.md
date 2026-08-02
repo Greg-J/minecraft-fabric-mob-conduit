@@ -119,6 +119,7 @@ outside every radius, and how many were seen while no conduit was active.
 | `activation_sounds` | `true` | Layered `block.beacon.*` and `block.conduit.*` on activate/deactivate. |
 | `ambient_sounds` | `true` | Layered ambient hum every 80 ticks while active. |
 | `light_base_on_activate` | `true` | Swap the obsidian under the crystal for a light block while active, restored when it shuts off. |
+| `hologram` | `true` | Floating "Mob Conduit — radius N" text above the crystal while active. A vanilla `text_display` entity; nothing is registered. |
 | `crystal_aura_enabled` | `true` | Continuous shimmer in and around the crystal while active. |
 | `crystal_aura_count` | `6` | Particles per emission. |
 | `crystal_aura_interval_ticks` | `4` | Lower is denser. |

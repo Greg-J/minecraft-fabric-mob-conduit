@@ -149,6 +149,9 @@ public final class ModConfig {
 	 */
 	private boolean lightBaseOnActivate = true;
 
+	/** Floating status text above the crystal while active — a vanilla text_display entity. */
+	private boolean hologram = true;
+
 	private boolean removalLightEnabled = true;
 	private int removalLightDelayTicks = 10;
 	private int removalLightFadeTicks = 60;
@@ -571,6 +574,10 @@ public final class ModConfig {
 
 	public boolean lightBaseOnActivate() {
 		return this.lightBaseOnActivate;
+	}
+
+	public boolean hologram() {
+		return this.hologram;
 	}
 
 	public int removalRiserCount() {

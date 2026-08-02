@@ -185,6 +185,7 @@ classpath.
 | `removal_drops` | `false` | Kill instead of discard, so loot and XP drop. See below. |
 | `activation_sounds` / `ambient_sounds` | `true` | Layered `block.beacon.*` + `block.conduit.*`. |
 | `light_base_on_activate` | `true` | Swap the obsidian under the crystal for a light block while active, restored on deactivation. |
+| `hologram` | `true` | Floating status text above the crystal — a vanilla `text_display` entity, deduped by tag. |
 | `removal_particle_count` | `40` | Soul fire puff per erased mob. |
 | `removal_riser_count` / `removal_riser_speed` | `20` / `1.0` | Climbing soul flames; ~10-21 blocks at speed 1.0. |
 | `removal_light_delay_ticks` | `10` | Light appears this long before the mob vanishes. |
