@@ -50,7 +50,11 @@ player replaces the crystal to reactivate.
 
 - **No water requirement.** Unlike the vanilla conduit, this works in air. Vanilla's activation
   check cannot be reused directly.
-- **Hostile mobs only.** Passive and neutral spawns are unaffected.
+- **Hostile mobs only.** The rule, as implemented by the shared `Hostiles.isSuppressible`
+  predicate (used by both the spawn guard and the erasure sweep): `Enemy` minus `NeutralMob`,
+  plus the three undead mounts. In 26.2 the only `Enemy & NeutralMob` types are endermen and
+  zombified piglins, so those stay spawnable and unswept; spiders and piglins are `Enemy`
+  without `NeutralMob` and stay suppressed. Passive spawns are unaffected.
 - **Natural spawns only.** Monster spawners, spawn eggs, and breeding all keep working.
 - **Radius scales with frame block count**, from `radius_min` to `radius_max` (default 64 to
   128 blocks), across the same frame thresholds vanilla uses.
@@ -183,8 +187,18 @@ classpath.
 | `removal_particle_count` | `40` | Soul fire puff per erased mob. |
 | `removal_riser_count` / `removal_riser_speed` | `20` / `1.0` | Climbing soul flames; ~10-21 blocks at speed 1.0. |
 | `removal_light_delay_ticks` | `10` | Light appears this long before the mob vanishes. |
-| `removal_light_fade_ticks` | `60` | Fade duration, walked one light level at a time. |
+| `removal_light_fade_ticks` | `60` | Fade duration, walked one light level at a time. Clamped to ≥ 15. |
 | `max_concurrent_lights` | `0` | Ceiling on lights in flight; 0 means unlimited. |
+| `removal_exempt_types` | wither, ender_dragon, warden, elder_guardian | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly. |
+| `removal_budget_per_tick` | `32` | Mobs processed per tick during a sweep; the staging budget. |
+| `removal_light_enabled` | `true` | Master switch for the light-flash stage of erasure. |
+| `removal_particle` / `removal_secondary_particle` / `removal_riser_particle` | `soul_fire_flame` / `soul` / `soul_fire_flame` | Particle ids per effect; any `SimpleParticleType`. |
+| `crystal_aura_enabled` / `_count` / `_interval_ticks` | `true` / `6` / `4` | Continuous shimmer around the crystal. |
+| `crystal_aura_particle` | `trial_spawner_detection_ominous` | Chosen for `overrideLimiter = true`: visible at distance, never culled. |
+| `kill_plume_particle` / `kill_plume_count` | `sculk_soul` / `0` | Forcefield-kill plume off the conduit top; 0 = off. |
+| `kill_beam_particle` / `kill_beam_length` | `sonic_boom` / `0` | Vertical beam per forcefield kill; 0 = off. |
+| `frame_drips_enabled` / `_count` / `_interval_ticks` | `true` / `3` / `8` | Crying-obsidian-style drips off the frame. |
+| `frame_drip_particle` | `dripping_obsidian_tear` | Particle id for the drips. |
 
 - **Never hardcode the frame block.** Read it from config everywhere, including detection.
 - Validate `frame_block` against the block registry at load. If it does not resolve, log an
@@ -197,6 +211,24 @@ classpath.
 - **Frame cost note:** at the netherite block default, vanilla's 16-block activation threshold
   costs roughly 576 ancient debris. This is deliberate. Server owners who want it achievable
   can set `frame_block` to `minecraft:ancient_debris` for the same look at 1/36th the cost.
+
+### Known behaviors and unavoidable side effects
+
+- Vetoed spawns still consume mob-cap credits (`NaturalSpawner` runs `afterSpawn`
+  unconditionally). Inherent to the `ALLOW_LOAD` hook; after a mass erasure, suppressed spawns
+  briefly throttle spawning outside the radius too. Steady-state impact is negligible.
+- `SpawnOrigin` records die on chunk unload, not just on restart. Spawner-farm output inside a
+  radius whose chunk cycled can be swept despite the farm exemption; name-tag pen stock to be
+  safe. Spawner data carrying custom NBT never gets a record at all
+  (`BaseSpawner.java:159-162`).
+- With `forcefield: false`, these natural-ish paths are not suppressed: zombie reinforcements,
+  village sieges, nether-portal piglins (vanilla files them as `STRUCTURE`), one-time structure
+  populations.
+- A trap horse spawned outside the radius and triggered inside yields four persistent, tamed
+  horsemen that neither the guard nor the sweep will ever touch. By design: they are
+  player-triggered, persistent, and tamed.
+- A light block fading in a chunk that is already unloaded when the server stops is saved with
+  the chunk and never cleared. Every other stranding path is handled.
 
 ---
 

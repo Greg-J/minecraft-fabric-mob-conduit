@@ -56,13 +56,15 @@ Put a new crystal on the obsidian to start it again.
 
 ## Config
 
-`config/mob-conduit.json`. Run `/mobconduit reload` to pick up changes without restarting.
+`config/mob-conduit.json`. Run `/mobconduit reload` to pick up changes without restarting, or
+`/mobconduit set <key> <value>` to edit one key live (`/mobconduit get <key>` reads it back).
 
 You can set the radius, the thresholds, the frame block, whether mobs drop loot, whether it
 handles wanderers, and all the particle effects including which particle each one uses.
 
 `/mobconduit status` puts a scoreboard on screen with a running count of how many spawns it's
-blocking.
+blocking. `/mobconduit sweep` re-runs the erasure across every conduit in the dimension, and
+`/mobconduit build <pos>` erects a full structure for testing.
 
 ## Requirements
 

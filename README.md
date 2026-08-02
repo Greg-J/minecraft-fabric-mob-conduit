@@ -59,7 +59,7 @@ spherical, measured from the crystal.
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3+ for Minecraft 26.2 on your server.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.156.0+26.2 in `mods/`.
-3. Put `mob-conduit-1.0.0.jar` in `mods/`.
+3. Put `mob-conduit-1.1.0.jar` in `mods/`.
 4. Start the server. Requires **Java 25**.
 
 Nothing is installed on the client.
@@ -74,6 +74,8 @@ All require permission level 2 (gamemaster).
 | `/mobconduit status off` | Hide the sidebar |
 | `/mobconduit sweep` | Re-run the erasure across every conduit in this dimension |
 | `/mobconduit reload` | Re-read the config and re-validate every conduit |
+| `/mobconduit set <key> <value>` | Live-edit any config key, save it, and re-validate every conduit |
+| `/mobconduit get <key>` | Print the current value of a config key |
 | `/mobconduit build <pos>` | Erect a full frame, obsidian and crystal at `<pos>` — a testing aid |
 
 The sidebar reports natural hostile spawn attempts, how many were suppressed, how many fell
@@ -102,7 +104,7 @@ outside every radius, and how many were seen while no conduit was active.
 | `forcefield_interval_ticks` | `40` | How often each conduit re-sweeps when `forcefield` is on. |
 | `removal_drops` | `false` | Kill instead of discard, so loot and XP drop. See the warning below. |
 | `removal_budget_per_tick` | `32` | Mobs processed per tick during a sweep. |
-| `removal_exempt_types` | wither, ender dragon | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly — extend this for modded bosses. |
+| `removal_exempt_types` | wither, ender dragon, warden, elder guardian | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly — extend this for modded bosses. |
 
 ### Presentation
 
@@ -167,9 +169,9 @@ unticked chunks do not spawn mobs, so the extra radius does nothing.
 
 ## How it works
 
-- **Detection is event-driven.** Nothing ever scans the world looking for conduits. A single
-  Mixin on the end crystal's `tick()` re-validates the frame every 40 ticks, offset by entity id
-  so crystals do not all re-scan on the same tick.
+- **Detection is event-driven.** Nothing ever scans the world looking for conduits. A Mixin on
+  the end crystal's `tick()` re-validates the frame every 40 ticks, offset by entity id so
+  crystals do not all re-scan on the same tick.
 - **Spawn suppression uses a Fabric API hook, not a Mixin.** `ServerEntityEvents.ALLOW_LOAD`
   carries the spawn reason and can cancel the load, which covers the whole feature without
   touching `NaturalSpawner`.
@@ -178,7 +180,9 @@ unticked chunks do not spawn mobs, so the extra radius does nothing.
 - **State lives in world saved data** keyed by the crystal's position, so active conduits survive
   a restart. The centre is a vanilla entity, so there is nothing of ours to attach state to.
 
-One Mixin, on `EndCrystal#tick`. That is the entire surface area against Minecraft internals.
+Two Mixins — one on `EndCrystal#tick` for detection, one on `Mob#finalizeSpawn` to backfill
+spawn reasons the Fabric hook cannot see. That is the entire surface area against Minecraft
+internals.
 
 ## Building from source
 
