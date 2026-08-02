@@ -77,6 +77,7 @@ All require permission level 2 (gamemaster).
 | `/mobconduit set <key> <value>` | Live-edit any config key, save it, and re-validate every conduit |
 | `/mobconduit get <key>` | Print the current value of a config key |
 | `/mobconduit build <pos>` | Erect a full frame, obsidian and crystal at `<pos>` — a testing aid |
+| `/mobconduit visualize` | Draw every active conduit's coverage sphere in particles for 10 seconds |
 
 The sidebar reports natural hostile spawn attempts, how many were suppressed, how many fell
 outside every radius, and how many were seen while no conduit was active.
@@ -105,6 +106,9 @@ outside every radius, and how many were seen while no conduit was active.
 | `removal_drops` | `false` | Kill instead of discard, so loot and XP drop. See the warning below. |
 | `removal_budget_per_tick` | `32` | Mobs processed per tick during a sweep. |
 | `removal_exempt_types` | wither, ender dragon, warden, elder guardian | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly — extend this for modded bosses. |
+| `suppress_exempt_types` | _(empty)_ | Entity ids left entirely alone — neither suppressed nor swept. |
+| `suppression_feedback` | `actionbar` | How a vetoed spawn announces itself to players in range: `off`, `actionbar` or `particle`. Rate-limited to one message per conduit per 2 seconds. |
+| `disabled_dimensions` | _(empty)_ | Dimension ids where conduits do nothing, e.g. `["minecraft:the_end"]`. |
 
 ### Presentation
 

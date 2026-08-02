@@ -190,6 +190,9 @@ classpath.
 | `removal_light_fade_ticks` | `60` | Fade duration, walked one light level at a time. Clamped to ≥ 15. |
 | `max_concurrent_lights` | `0` | Ceiling on lights in flight; 0 means unlimited. |
 | `removal_exempt_types` | wither, ender_dragon, warden, elder_guardian | Entity ids never erased. Vanilla has no boss marker, so bosses are listed explicitly. |
+| `suppress_exempt_types` | `[]` | Entity ids left entirely alone — neither suppressed nor swept. |
+| `suppression_feedback` | `actionbar` | How a vetoed spawn announces itself to players in range: `off`, `actionbar`, `particle`. Rate-limited per conduit. |
+| `disabled_dimensions` | `[]` | Dimension ids where conduits do nothing, e.g. `["minecraft:the_end"]`. |
 | `removal_budget_per_tick` | `32` | Mobs processed per tick during a sweep; the staging budget. |
 | `removal_light_enabled` | `true` | Master switch for the light-flash stage of erasure. |
 | `removal_particle` / `removal_secondary_particle` / `removal_riser_particle` | `soul_fire_flame` / `soul` / `soul_fire_flame` | Particle ids per effect; any `SimpleParticleType`. |

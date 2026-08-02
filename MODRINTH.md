@@ -63,8 +63,10 @@ You can set the radius, the thresholds, the frame block, whether mobs drop loot,
 handles wanderers, and all the particle effects including which particle each one uses.
 
 `/mobconduit status` puts a scoreboard on screen with a running count of how many spawns it's
-blocking. `/mobconduit sweep` re-runs the erasure across every conduit in the dimension, and
-`/mobconduit build <pos>` erects a full structure for testing.
+blocking, and every suppressed spawn pings the action bar of players in range. `/mobconduit
+visualize` draws each conduit's coverage sphere in particles for a few seconds. `/mobconduit
+sweep` re-runs the erasure across every conduit in the dimension, and `/mobconduit build <pos>`
+erects a full structure for testing.
 
 ## Requirements
 
