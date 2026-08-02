@@ -19,6 +19,14 @@ public final class ConduitDetector {
 	 */
 	private static final int CHECK_INTERVAL_TICKS = 40;
 
+	/**
+	 * Last position each crystal was validated at, so a same-level move (a teleport fires no
+	 * ENTITY_UNLOAD) deactivates the conduit it left behind instead of leaving a crystal-less
+	 * suppression zone that persists forever. Weak keys: entries die with the crystal. Crystal
+	 * ticks run on the server thread, so no synchronization.
+	 */
+	private static final java.util.WeakHashMap<EndCrystal, BlockPos> LAST_VALIDATED_AT = new java.util.WeakHashMap<>();
+
 	private ConduitDetector() {
 	}
 
@@ -47,6 +55,12 @@ public final class ConduitDetector {
 		BlockPos pos = crystal.blockPosition();
 
 		if (due) {
+			BlockPos previous = LAST_VALIDATED_AT.put(crystal, pos);
+
+			if (previous != null && !previous.equals(pos)) {
+				ConduitStore.get(level).deactivate(level, previous);
+			}
+
 			validate(level, pos);
 		}
 
