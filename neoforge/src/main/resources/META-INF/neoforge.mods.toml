@@ -1,0 +1,39 @@
+# NeoForge mod metadata. ${version} is expanded by processResources from the root project's
+# version property. The modid has no hyphen because NeoForge modids cannot contain one.
+license="CC0-1.0"
+
+[[mods]]
+modId="mobconduit"
+version="${version}"
+displayName="Mob Conduit"
+authors="gregj"
+description='''
+A player-built multiblock that suppresses natural hostile spawning in a radius, built entirely from vanilla blocks. Server-side only; vanilla clients connect unmodified.
+'''
+
+# The shared mixin config (EndCrystalMixin + MobMixin, from the loader-neutral core's
+# resources) plus the NeoForge-only spawn-reason capture.
+[[mixins]]
+config="mob-conduit.mixins.json"
+
+[[mixins]]
+config="mob-conduit.neoforge.mixins.json"
+
+[[dependencies.mobconduit]]
+modId="neoforge"
+type="required"
+versionRange="[26.2.0.40-beta,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.mobconduit]]
+modId="minecraft"
+type="required"
+versionRange="[26.2,26.3)"
+ordering="NONE"
+side="BOTH"
+
+# Java >= 25, declared through NeoForge's features system (the MDK has no java dependency
+# entry; docs.neoforged.net/docs/gettingstarted/modfiles documents javaVersion instead).
+[features.mobconduit]
+javaVersion="[25,)"

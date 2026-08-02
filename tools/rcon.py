@@ -33,4 +33,5 @@ def rcon(command, host="127.0.0.1", port=25575, password="mobconduit"):
 
 
 if __name__ == "__main__":
-    print(rcon(sys.argv[1]))
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 25575
+    print(rcon(sys.argv[1], port=port))

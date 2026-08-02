@@ -1,0 +1,85 @@
+// NeoForge platform module. Compiles the loader-neutral core (../src/main/java, minus the
+// Fabric-only fabric/ package) against NeoForge via ModDevGradle, plus the adapter in
+// neoforge/src. See docs/superpowers/specs/2026-08-02-multi-loader-design.md §2.
+plugins {
+	id 'java-library'
+	id 'net.neoforged.moddev' version '2.0.141'
+}
+
+version = rootProject.version
+group = 'io.github.gregj.mobconduit'
+
+base {
+	archivesName = 'mob-conduit-neoforge'
+}
+
+repositories {
+	// Plugin resolution is covered by settings.gradle pluginManagement; the NeoForge maven is
+	// repeated here for the module's own dependencies.
+	maven {
+		name = 'NeoForge'
+		url = 'https://maven.neoforged.net/releases'
+	}
+	mavenCentral()
+}
+
+// Mojang ships Java 25 to end users in 26.x, so mods target Java 25.
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+sourceSets {
+	main {
+		java {
+			// The loader-neutral core, minus the Fabric-only package.
+			srcDir '../src/main/java'
+			exclude 'io/github/gregj/mobconduit/fabric/**'
+		}
+		resources {
+			// Shared resources: the shared mob-conduit.mixins.json is declared alongside the
+			// NeoForge-only config in neoforge.mods.toml. fabric.mod.json comes along and is
+			// ignored by NeoForge.
+			srcDir '../src/main/resources'
+		}
+	}
+}
+
+neoForge {
+	version = '26.2.0.40-beta'
+
+	runs {
+		server {
+			server()
+			programArgument '--nogui'
+			gameDirectory = project.file('run')
+		}
+
+		configureEach {
+			logLevel = org.slf4j.event.Level.INFO
+		}
+	}
+
+	mods {
+		// NeoForge modids cannot contain hyphens, so this is not the mob-conduit mod ID.
+		mobconduit {
+			sourceSet(sourceSets.main)
+		}
+	}
+}
+
+processResources {
+	def modVersion = project.version
+	inputs.property 'version', modVersion
+
+	filesMatching('META-INF/neoforge.mods.toml') {
+		expand 'version': modVersion
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
+// nfrt-gradle's downloadAssets hardcodes a Java 21 toolchain lookup, which fails on machines
+// with only Java 25 installed. Run the downloader on the JVM that's running Gradle instead.
+tasks.withType(net.neoforged.nfrtgradle.DownloadAssets).configureEach {
+	javaExecutable.set(org.gradle.internal.jvm.Jvm.current().javaExecutable.absolutePath)
+}

@@ -4,6 +4,10 @@ pluginManagement {
 			name = 'Fabric'
 			url = 'https://maven.fabricmc.net/'
 		}
+		maven {
+			name = 'NeoForge'
+			url = 'https://maven.neoforged.net/releases'
+		}
 		mavenCentral()
 		gradlePluginPortal()
 	}
@@ -11,3 +15,7 @@ pluginManagement {
 
 // Should match your modid
 rootProject.name = 'mob-conduit'
+
+// Platform modules. The root project is the Fabric jar; these compile the same loader-neutral
+// core for their own loaders (neoforge) or re-implement it against the Bukkit API (bukkit).
+include 'neoforge', 'bukkit'
