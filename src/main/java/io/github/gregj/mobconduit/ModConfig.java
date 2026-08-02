@@ -67,7 +67,7 @@ public final class ModConfig {
 	private int removalRiserCount = 20;
 
 	// Particle types. Any vanilla particle id that needs no extra data — see resolveParticle.
-	private String crystalAuraParticle = "minecraft:sculk_soul";
+	private String crystalAuraParticle = "minecraft:trial_spawner_detection_ominous";
 	private String killPlumeParticle = "minecraft:sculk_soul";
 	private String frameDripParticle = "minecraft:dripping_obsidian_tear";
 	private String removalParticle = "minecraft:soul_fire_flame";
@@ -146,7 +146,7 @@ public final class ModConfig {
 	private transient Block resolvedFrameBlock = Blocks.NETHERITE_BLOCK;
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
 
-	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.SCULK_SOUL;
+	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.TRIAL_SPAWNER_DETECTED_PLAYER_OMINOUS;
 	private transient SimpleParticleType resolvedKillPlumeParticle = ParticleTypes.SCULK_SOUL;
 	private transient SimpleParticleType resolvedKillBeamParticle = ParticleTypes.SONIC_BOOM;
 	private transient SimpleParticleType resolvedFrameDripParticle = ParticleTypes.DRIPPING_OBSIDIAN_TEAR;
@@ -313,7 +313,7 @@ public final class ModConfig {
 		this.removalBudgetPerTick = clamp(this.removalBudgetPerTick, 1, 4096);
 		this.removalParticleCount = clamp(this.removalParticleCount, 0, 256);
 		this.removalRiserCount = clamp(this.removalRiserCount, 0, 128);
-		this.resolvedCrystalAuraParticle = resolveParticle(this.crystalAuraParticle, "crystal_aura_particle", ParticleTypes.SCULK_SOUL);
+		this.resolvedCrystalAuraParticle = resolveParticle(this.crystalAuraParticle, "crystal_aura_particle", ParticleTypes.TRIAL_SPAWNER_DETECTED_PLAYER_OMINOUS);
 		this.resolvedKillPlumeParticle = resolveParticle(this.killPlumeParticle, "kill_plume_particle", ParticleTypes.SCULK_SOUL);
 		this.resolvedKillBeamParticle = resolveParticle(this.killBeamParticle, "kill_beam_particle", ParticleTypes.SONIC_BOOM);
 		this.resolvedFrameDripParticle = resolveParticle(this.frameDripParticle, "frame_drip_particle", ParticleTypes.DRIPPING_OBSIDIAN_TEAR);
@@ -330,7 +330,9 @@ public final class ModConfig {
 		this.removalRiserSpeed = Math.max(0.0, Math.min(4.0, this.removalRiserSpeed));
 		this.forcefieldIntervalTicks = clamp(this.forcefieldIntervalTicks, 5, 1200);
 		this.removalLightDelayTicks = clamp(this.removalLightDelayTicks, 0, 200);
-		this.removalLightFadeTicks = clamp(this.removalLightFadeTicks, 1, 600);
+		// The fade walks one light level per step, so anything under 15 ticks collapses to 15
+		// anyway; say so in the clamp rather than silently misbehaving.
+		this.removalLightFadeTicks = clamp(this.removalLightFadeTicks, 15, 600);
 		this.maxConcurrentLights = clamp(this.maxConcurrentLights, 0, 8192);
 
 		Set<EntityType<?>> exempt = new HashSet<>();
@@ -364,7 +366,16 @@ public final class ModConfig {
 			return Blocks.NETHERITE_BLOCK;
 		}
 
-		return BuiltInRegistries.BLOCK.getValue(id);
+		Block block = BuiltInRegistries.BLOCK.getValue(id);
+
+		if (block.defaultBlockState().isAir()) {
+			// The 42 frame positions are air by default, so an air frame block would activate
+			// any crystal anywhere at full radius for free.
+			MobConduit.LOGGER.error("frame_block: '{}' is an air block; falling back to minecraft:netherite_block", name);
+			return Blocks.NETHERITE_BLOCK;
+		}
+
+		return block;
 	}
 
 	/**
