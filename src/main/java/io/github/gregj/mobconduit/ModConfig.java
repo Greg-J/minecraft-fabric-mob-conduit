@@ -59,6 +59,9 @@ public final class ModConfig {
 			"minecraft:wither", "minecraft:ender_dragon", "minecraft:warden", "minecraft:elder_guardian");
 	private int removalBudgetPerTick = 32;
 
+	/** How a vetoed spawn announces itself to players in range: off, actionbar or particle. */
+	private String suppressionFeedback = "actionbar";
+
 	private boolean activationSounds = true;
 	private boolean ambientSounds = true;
 	private int removalParticleCount = 40;
@@ -145,6 +148,7 @@ public final class ModConfig {
 
 	private transient Block resolvedFrameBlock = Blocks.NETHERITE_BLOCK;
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
+	private transient FeedbackMode resolvedSuppressionFeedback = FeedbackMode.OFF;
 
 	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.TRIAL_SPAWNER_DETECTED_PLAYER_OMINOUS;
 	private transient SimpleParticleType resolvedKillPlumeParticle = ParticleTypes.SCULK_SOUL;
@@ -156,6 +160,13 @@ public final class ModConfig {
 
 	public static ModConfig get() {
 		return active;
+	}
+
+	/** How a vetoed spawn announces itself; see {@code suppression_feedback}. */
+	public enum FeedbackMode {
+		OFF,
+		ACTIONBAR,
+		PARTICLE
 	}
 
 	private static Path configPath() {
@@ -351,7 +362,18 @@ public final class ModConfig {
 		}
 
 		this.resolvedExemptTypes = Set.copyOf(exempt);
+		this.resolvedSuppressionFeedback = resolveFeedback(this.suppressionFeedback);
 	}
+
+	private static FeedbackMode resolveFeedback(String name) {
+		try {
+			return FeedbackMode.valueOf(name.toUpperCase(java.util.Locale.ROOT));
+		} catch (IllegalArgumentException | NullPointerException e) {
+			MobConduit.LOGGER.error("suppression_feedback: '{}' is not one of off, actionbar, particle; falling back to off", name);
+			return FeedbackMode.OFF;
+		}
+	}
+
 
 	private static Block resolveBlock(String name) {
 		Identifier id = tryParse(name);
@@ -470,6 +492,10 @@ public final class ModConfig {
 
 	public boolean isExemptFromRemoval(EntityType<?> type) {
 		return this.resolvedExemptTypes.contains(type);
+	}
+
+	public FeedbackMode suppressionFeedback() {
+		return this.resolvedSuppressionFeedback;
 	}
 
 	public boolean activationSounds() {

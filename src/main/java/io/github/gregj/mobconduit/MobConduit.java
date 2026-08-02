@@ -63,11 +63,15 @@ public class MobConduit implements ModInitializer {
 			// (ServerLevel.tickThunder, ServerLevel.java:556-562), so refusing the trap here is
 			// the one clean interception point.
 			if (entity instanceof SkeletonHorse horse && horse.isTrap()
-					&& ConduitStore.anyActive()
-					&& ConduitStore.get(level).suppresses(entity.blockPosition())) {
-				SpawnStats.HOSTILE_OTHER_REASON.incrementAndGet();
-				SpawnStats.SUPPRESSED.incrementAndGet();
-				return vetoSpawn(entity);
+					&& ConduitStore.anyActive()) {
+				Conduit conduit = ConduitStore.get(level).suppressingConduit(entity.blockPosition());
+
+				if (conduit != null) {
+					SpawnStats.HOSTILE_OTHER_REASON.incrementAndGet();
+					SpawnStats.SUPPRESSED.incrementAndGet();
+					SuppressionFeedback.onVeto(level, entity, conduit);
+					return vetoSpawn(entity);
+				}
 			}
 
 			// Everything else through here is deliberately allowed, but counted: without this
@@ -91,8 +95,11 @@ public class MobConduit implements ModInitializer {
 			return true;
 		}
 
-		if (ConduitStore.get(level).suppresses(entity.blockPosition())) {
+		Conduit conduit = ConduitStore.get(level).suppressingConduit(entity.blockPosition());
+
+		if (conduit != null) {
 			SpawnStats.SUPPRESSED.incrementAndGet();
+			SuppressionFeedback.onVeto(level, entity, conduit);
 			return vetoSpawn(entity);
 		}
 

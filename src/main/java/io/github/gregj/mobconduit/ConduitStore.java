@@ -22,8 +22,10 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -81,6 +83,9 @@ public final class ConduitStore extends SavedData {
 	 * server; see {@code MobConduit.onEntityUnload}.
 	 */
 	private final List<BlockPos> pendingDeactivations = new ArrayList<>();
+
+	/** Last game-time each conduit fired suppression feedback; transient, self-cleaning by size. */
+	private final Map<BlockPos, Long> lastFeedback = new HashMap<>();
 
 	public ConduitStore() {
 	}
@@ -288,24 +293,43 @@ public final class ConduitStore extends SavedData {
 	}
 
 	/**
-	 * True when a hostile spawn at this position should be suppressed. One packed-long lookup
-	 * rejects the common case; the exact spherical test only runs for chunks a conduit actually
-	 * reaches.
+	 * The conduit suppressing this position, or null. One packed-long lookup rejects the common
+	 * case; the exact spherical test only runs for chunks a conduit actually reaches.
 	 */
-	public boolean suppresses(BlockPos pos) {
+	public Conduit suppressingConduit(BlockPos pos) {
 		Conduit[] candidates = this.byChunk.get(ChunkPos.pack(pos));
 
 		if (candidates == null) {
-			return false;
+			return null;
 		}
 
 		for (Conduit conduit : candidates) {
 			if (conduit.covers(pos.getX(), pos.getY(), pos.getZ())) {
-				return true;
+				return conduit;
 			}
 		}
 
-		return false;
+		return null;
+	}
+
+	/** True when a hostile spawn at this position should be suppressed. */
+	public boolean suppresses(BlockPos pos) {
+		return suppressingConduit(pos) != null;
+	}
+
+	/**
+	 * Rate-limits suppression feedback to one message per conduit per cooldown. Returns true —
+	 * and records the time — when a feedback may fire now.
+	 */
+	public boolean markFeedback(BlockPos pos, long gameTime, int cooldownTicks) {
+		Long last = this.lastFeedback.get(pos);
+
+		if (last != null && gameTime - last < cooldownTicks) {
+			return false;
+		}
+
+		this.lastFeedback.put(pos.immutable(), gameTime);
+		return true;
 	}
 
 	/**
