@@ -37,14 +37,6 @@ public final class SpawnStats {
 	private SpawnStats() {
 	}
 
-	public static void reset() {
-		HOSTILE_NATURAL.set(0);
-		HOSTILE_OTHER_REASON.set(0);
-		SKIPPED_NO_ACTIVE.set(0);
-		OUT_OF_RANGE.set(0);
-		SUPPRESSED.set(0);
-	}
-
 	public static String summary() {
 		return "hostile natural spawn attempts: " + HOSTILE_NATURAL.get()
 				+ ", suppressed: " + SUPPRESSED.get()

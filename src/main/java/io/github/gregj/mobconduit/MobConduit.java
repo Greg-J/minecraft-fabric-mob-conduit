@@ -176,8 +176,4 @@ public class MobConduit implements ModInitializer {
 			ConduitStore.get(level).forget(level);
 		}
 	}
-
-	public static Identifier id(String path) {
-		return Identifier.fromNamespaceAndPath(MOD_ID, path);
-	}
 }

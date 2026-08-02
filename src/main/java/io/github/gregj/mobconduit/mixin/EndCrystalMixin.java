@@ -8,9 +8,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The only Mixin in the mod. An end crystal is an entity, so there is no block entity tick to
- * hang conduit detection on; this is the hook. The body stays a single call — all logic lives
- * in {@link ConduitDetector}, which throttles hard before doing any work.
+ * One of two mixins in the mod (the other, {@code MobMixin}, backfills spawn reasons). An end
+ * crystal is an entity, so there is no block entity tick to hang conduit detection on; this is
+ * the hook. The body stays a single call — all logic lives in {@link ConduitDetector}, which
+ * throttles hard before doing any work.
  */
 @Mixin(EndCrystal.class)
 public class EndCrystalMixin {

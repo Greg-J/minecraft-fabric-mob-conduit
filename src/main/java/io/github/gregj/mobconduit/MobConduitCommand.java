@@ -17,7 +17,8 @@ import net.minecraft.world.level.block.Blocks;
 import java.util.List;
 
 /**
- * {@code /mobconduit reload} and {@code /mobconduit status}. Plain chat output only — the mod
+ * {@code /mobconduit} with six subcommands: {@code reload}, {@code status} / {@code status off},
+ * {@code sweep}, {@code set}, {@code get} and {@code build}. Plain chat output only — the mod
  * registers nothing and a vanilla client sees ordinary text.
  */
 public final class MobConduitCommand {
