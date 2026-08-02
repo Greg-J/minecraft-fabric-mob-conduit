@@ -426,6 +426,7 @@ public final class ConduitStore extends SavedData {
 	 */
 	public int revalidate(ServerLevel level) {
 		ModConfig config = ModConfig.get();
+		boolean dimDisabled = config.isDimensionDisabled(level.dimension().identifier());
 		List<Conduit> survivors = new ArrayList<>();
 		int dropped = 0;
 
@@ -433,8 +434,22 @@ public final class ConduitStore extends SavedData {
 			BlockPos pos = conduit.pos();
 
 			if (!level.isLoaded(pos)) {
+				if (dimDisabled) {
+					// A crystal here can never re-activate, so keeping the entry would park a
+					// suppression zone nothing can see or remove.
+					dropped++;
+					continue;
+				}
+
 				// Cannot read the frame; keep it and let the crystal's next tick decide.
 				survivors.add(new Conduit(pos, conduit.frameCount()));
+				continue;
+			}
+
+			if (dimDisabled) {
+				restoreBase(level, pos);
+				this.armedThisSession.remove(pos);
+				dropped++;
 				continue;
 			}
 

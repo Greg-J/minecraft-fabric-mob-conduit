@@ -92,8 +92,16 @@ public final class ConduitDetector {
 	/** Re-reads the frame at {@code pos} and activates or deactivates accordingly. */
 	public static void validate(ServerLevel level, BlockPos pos) {
 		ModConfig config = ModConfig.get();
-		int frameCount = FrameShape.count(level, pos, config.frameBlock());
 		ConduitStore store = ConduitStore.get(level);
+
+		if (config.isDimensionDisabled(level.dimension().identifier())) {
+			// Conduits do nothing in this dimension; make that visible immediately rather
+			// than leaving an entry that suppresses nothing but confuses /mobconduit status.
+			store.deactivate(level, pos);
+			return;
+		}
+
+		int frameCount = FrameShape.count(level, pos, config.frameBlock());
 
 		if (frameCount >= config.frameThresholdMin()) {
 			store.activate(level, pos, frameCount);

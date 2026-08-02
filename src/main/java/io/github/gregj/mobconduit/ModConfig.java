@@ -62,6 +62,9 @@ public final class ModConfig {
 	/** How a vetoed spawn announces itself to players in range: off, actionbar or particle. */
 	private String suppressionFeedback = "actionbar";
 
+	/** Dimension ids where conduits do nothing, e.g. ["minecraft:the_end"]. */
+	private List<String> disabledDimensions = List.of();
+
 	private boolean activationSounds = true;
 	private boolean ambientSounds = true;
 	private int removalParticleCount = 40;
@@ -149,6 +152,7 @@ public final class ModConfig {
 	private transient Block resolvedFrameBlock = Blocks.NETHERITE_BLOCK;
 	private transient Set<EntityType<?>> resolvedExemptTypes = Set.of();
 	private transient FeedbackMode resolvedSuppressionFeedback = FeedbackMode.OFF;
+	private transient Set<Identifier> resolvedDisabledDimensions = Set.of();
 
 	private transient SimpleParticleType resolvedCrystalAuraParticle = ParticleTypes.TRIAL_SPAWNER_DETECTED_PLAYER_OMINOUS;
 	private transient SimpleParticleType resolvedKillPlumeParticle = ParticleTypes.SCULK_SOUL;
@@ -363,6 +367,7 @@ public final class ModConfig {
 
 		this.resolvedExemptTypes = Set.copyOf(exempt);
 		this.resolvedSuppressionFeedback = resolveFeedback(this.suppressionFeedback);
+		this.resolvedDisabledDimensions = resolveDimensions(this.disabledDimensions);
 	}
 
 	private static FeedbackMode resolveFeedback(String name) {
@@ -374,6 +379,24 @@ public final class ModConfig {
 		}
 	}
 
+	private static Set<Identifier> resolveDimensions(List<String> names) {
+		Set<Identifier> resolved = new HashSet<>();
+
+		if (names != null) {
+			for (String name : names) {
+				Identifier id = tryParse(name);
+
+				if (id == null) {
+					MobConduit.LOGGER.error("disabled_dimensions: '{}' is not a valid identifier; ignoring", name);
+					continue;
+				}
+
+				resolved.add(id);
+			}
+		}
+
+		return Set.copyOf(resolved);
+	}
 
 	private static Block resolveBlock(String name) {
 		Identifier id = tryParse(name);
@@ -496,6 +519,10 @@ public final class ModConfig {
 
 	public FeedbackMode suppressionFeedback() {
 		return this.resolvedSuppressionFeedback;
+	}
+
+	public boolean isDimensionDisabled(Identifier dimension) {
+		return this.resolvedDisabledDimensions.contains(dimension);
 	}
 
 	public boolean activationSounds() {

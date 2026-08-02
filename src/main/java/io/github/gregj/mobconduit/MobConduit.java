@@ -46,6 +46,12 @@ public class MobConduit implements ModInitializer {
 			return true;
 		}
 
+		ModConfig config = ModConfig.get();
+
+		if (config.isDimensionDisabled(level.dimension().identifier())) {
+			return true;
+		}
+
 		// Natural spawns only. Spawners, trial spawners, spawn eggs, breeding, commands and
 		// every other reason keep working inside the radius. JOCKEY is the one indirect case:
 		// vanilla mounts a companion onto a spawn during the vehicle's finalizeSpawn — the
