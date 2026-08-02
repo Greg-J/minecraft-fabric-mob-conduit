@@ -48,7 +48,8 @@ Radius scales linearly with frame block count, between the two thresholds:
 | 42 (full frame) | 128 |
 
 Both thresholds match vanilla's conduit (`MIN_ACTIVE_SIZE` and `MIN_KILL_SIZE`). The radius is
-spherical, measured from the crystal.
+spherical, measured from the crystal — or set `radius_shape` to `cylinder` for the same
+horizontal radius at full height.
 
 > **Note on cost.** At the netherite default, a full 42-block frame is roughly 1,512 ancient
 > debris. This is intentional — it is meant to be an endgame answer to base spawn-proofing.
