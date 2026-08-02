@@ -72,6 +72,29 @@ jar {
 	}
 }
 
+// One uber-jar that loads on every platform: the Fabric jar (with the shared loader-neutral
+// core and fabric.mod.json), the NeoForge adapter (neoforge.mods.toml, access transformer,
+// reason-capture mixin), and the Bukkit plugin (plugin.yml + paper-plugin.yml). Shared classes
+// appear in all three inputs and are byte-identical, so EXCLUDE dedups them. Each loader reads
+// only its own descriptor and ignores the rest.
+tasks.register('mergeJar', Jar) {
+	group = 'build'
+	description = 'Merges the Fabric, NeoForge and Bukkit jars into one all-platform jar.'
+	archiveBaseName = 'mob-conduit'
+	archiveClassifier = 'all'
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+	def fabricJar = layout.buildDirectory.file("libs/mob-conduit-${project.version}.jar")
+	def neoForgeJar = project(':neoforge').tasks.named('jar')
+	def bukkitJar = project(':bukkit').tasks.named('jar')
+
+	dependsOn tasks.named('build'), neoForgeJar, bukkitJar
+
+	from({ zipTree(fabricJar.get().asFile) })
+	from({ zipTree(neoForgeJar.get().archiveFile) })
+	from({ zipTree(bukkitJar.get().archiveFile) })
+}
+
 // configure the maven publication
 publishing {
 	publications {
