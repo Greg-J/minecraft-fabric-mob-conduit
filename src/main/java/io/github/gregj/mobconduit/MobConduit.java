@@ -6,13 +6,11 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.animal.equine.SkeletonHorse;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
-import net.minecraft.world.entity.monster.Enemy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,18 +72,14 @@ public class MobConduit implements ModInitializer {
 			// Everything else through here is deliberately allowed, but counted: without this
 			// the sidebar reads near-100% suppression while an unconsidered vanilla spawn path
 			// walks hostiles straight in, which is exactly how the jockey leak stayed invisible.
-			if (entity instanceof Enemy) {
+			if (Hostiles.isSuppressible(entity)) {
 				SpawnStats.HOSTILE_OTHER_REASON.incrementAndGet();
 			}
 
 			return true;
 		}
 
-		// Enemy alone misses vanilla's mounted spawns: a zombie horse is MobCategory.MONSTER
-		// but extends AbstractHorse, and vetoing only its rider would leave riderless undead
-		// mounts accumulating inside the radius. An explicit mount set rather than the MONSTER
-		// category, because the category also holds the sulfur cube — passive and farmable.
-		if (!(entity instanceof Enemy) && !SpawnOrigin.UNDEAD_MOUNTS.contains(entity.getType())) {
+		if (!Hostiles.isSuppressible(entity)) {
 			return true;
 		}
 

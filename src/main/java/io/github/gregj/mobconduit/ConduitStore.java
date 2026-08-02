@@ -11,8 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
-import net.minecraft.world.entity.monster.EnderMan;
-import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
@@ -323,7 +322,7 @@ public final class ConduitStore extends SavedData {
 		AABB bounds = new AABB(conduit.pos()).inflate(conduit.radius());
 
 		List<Mob> found = level.getEntitiesOfClass(Mob.class, bounds, mob ->
-				(mob instanceof Enemy || SpawnOrigin.UNDEAD_MOUNTS.contains(mob.getType()))
+				Hostiles.isSuppressible(mob)
 						&& !mob.isRemoved()
 						&& !isProtected(config, mob)
 						&& conduit.covers(mob.getBlockX(), mob.getBlockY(), mob.getBlockZ()));
@@ -333,8 +332,8 @@ public final class ConduitStore extends SavedData {
 	}
 
 	/**
-	 * Exemptions from erasure: named, persistence-flagged, leashed, tamed, carrying-a-block,
-	 * raid members, config-exempt types, and anything whose spawn was player-driven.
+	 * Exemptions from erasure: named, persistence-flagged, leashed, tamed, raid members,
+	 * config-exempt types, and anything whose spawn was player-driven.
 	 *
 	 * <p>{@code requiresCustomPersistence()} cannot be used as a blanket exemption: in 26.2 it
 	 * is {@code isPassenger() || isLeashed()} ({@code Mob.java:679-681}), and vanilla now spawns
@@ -342,11 +341,12 @@ public final class ConduitStore extends SavedData {
 	 * untouchable forever. Riding on its own therefore exempts nothing. The vanilla overrides
 	 * that method stands for are checked directly, because each holds whether or not the mob is
 	 * riding: raid membership ({@code Raider.java:240-241}; raids are player-triggered and the
-	 * conduit stays out of them), tamed horses covering the undead mounts the sweep now targets
-	 * ({@code AbstractHorse.java:169}; taming sets no persistence flag of its own), and an
-	 * enderman's carried block ({@code EnderMan.java:393-395}). The method itself is only
-	 * consulted for mobs that are not riding, which keeps unknown overrides — tamed nautiluses,
-	 * other mods' mobs — honoured everywhere vanilla honours them.
+	 * conduit stays out of them) and tamed horses covering the undead mounts the sweep targets
+	 * ({@code AbstractHorse.java:169}; taming sets no persistence flag of its own). Endermen no
+	 * longer reach this method at all — they are neutral and the sweep filter never selects
+	 * them, see {@link Hostiles}. The method itself is only consulted for mobs that are not
+	 * riding, which keeps unknown overrides — tamed nautiluses, other mods' mobs — honoured
+	 * everywhere vanilla honours them.
 	 *
 	 * <p>The spawn-reason check is what keeps "mob farms inside the radius keep working" true
 	 * under {@code forcefield}: spawner and breeding output would otherwise be erased within
@@ -371,10 +371,6 @@ public final class ConduitStore extends SavedData {
 		}
 
 		if (mob instanceof AbstractHorse horse && horse.isTamed()) {
-			return true;
-		}
-
-		if (mob instanceof EnderMan enderMan && enderMan.getCarriedBlock() != null) {
 			return true;
 		}
 
