@@ -1,6 +1,5 @@
 package io.github.gregj.mobconduit;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.EntityLoadData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
@@ -15,11 +14,11 @@ import java.util.WeakHashMap;
 /**
  * Where a mob came from, read back off the entity itself.
  *
- * <p>Fabric records the {@link EntitySpawnReason} passed to
- * {@code EntityType.create(Level, EntitySpawnReason)} and exposes it through
- * {@link EntityLoadData}, which its mixin implements on {@code Entity}. That hook misses more
+ * <p>The platform records the {@link EntitySpawnReason} passed to
+ * {@code EntityType.create(Level, EntitySpawnReason)} — on Fabric via its
+ * {@code EntityLoadData} hook, on NeoForge via our own capture mixin. That hook misses more
  * than it looks like: the reason overload delegates <em>into</em> the
- * {@code EntitySpawnRequest} overload, which Fabric does not hook, so everything routed through
+ * {@code EntitySpawnRequest} overload, which is not hooked, so everything routed through
  * {@code EntityType.loadEntityRecursive} — monster spawners, trial spawners, {@code /summon} —
  * records nothing, and constructor-built entities (vanilla's village siege) record nothing
  * either. {@code MobMixin} closes that gap by backfilling from {@code Mob.finalizeSpawn}, whose
@@ -95,8 +94,10 @@ public final class SpawnOrigin {
 
 	/** The reason recorded at creation, or null for disk-loaded and unhooked-path entities. */
 	public static EntitySpawnReason recorded(Entity entity) {
-		if (entity instanceof EntityLoadData data && data.spawnReason() != null) {
-			return data.spawnReason();
+		EntitySpawnReason reason = MobConduit.platform().spawnReason(entity);
+
+		if (reason != null) {
+			return reason;
 		}
 
 		return BACKFILLED.get(entity);

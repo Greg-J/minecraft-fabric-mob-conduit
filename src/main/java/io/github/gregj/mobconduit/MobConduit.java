@@ -1,10 +1,5 @@
 package io.github.gregj.mobconduit;
 
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -14,29 +9,43 @@ import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MobConduit implements ModInitializer {
+/**
+ * Loader-neutral core. The platform entrypoint ({@code MobConduitFabric} on Fabric, the
+ * {@code @Mod} class on NeoForge) calls {@link #init(Platform)} with its implementation;
+ * everything below is plain vanilla code.
+ */
+public final class MobConduit {
 	public static final String MOD_ID = "mob-conduit";
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	@Override
-	public void onInitialize() {
+	private static Platform platform;
+
+	private MobConduit() {
+	}
+
+	public static void init(Platform loaderPlatform) {
+		platform = loaderPlatform;
 		ModConfig.load();
 
-		ServerEntityEvents.ALLOW_LOAD.register(MobConduit::allowSpawn);
-		ServerEntityEvents.ENTITY_UNLOAD.register(MobConduit::onEntityUnload);
-		ServerTickEvents.END_LEVEL_TICK.register(MobConduit::onLevelTick);
-		ServerTickEvents.END_SERVER_TICK.register(StatusBoard::tick);
-		ServerLifecycleEvents.SERVER_STARTED.register(MobConduit::onServerStarted);
-		ServerLifecycleEvents.SERVER_STOPPING.register(MobConduit::onServerStopping);
-		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) ->
-				MobConduitCommand.register(dispatcher));
+		platform.registerSpawnGuard(MobConduit::allowSpawn);
+		platform.registerEntityUnload(MobConduit::onEntityUnload);
+		platform.registerEndLevelTick(MobConduit::onLevelTick);
+		platform.registerEndServerTick(StatusBoard::tick);
+		platform.registerServerStarted(MobConduit::onServerStarted);
+		platform.registerServerStopping(MobConduit::onServerStopping);
+		platform.registerCommands(MobConduitCommand::register);
+	}
+
+	public static Platform platform() {
+		return platform;
 	}
 
 	/**
-	 * Spawn suppression. Fabric API 0.156.0+26.2 has no spawn-specific event, but
-	 * {@code ServerEntityEvents.ALLOW_LOAD} carries the spawn reason and can veto the load,
-	 * which covers this without a Mixin.
+	 * Spawn suppression. Fabric API 0.156.0+26.2 has no spawn-specific event, but its
+	 * {@code ALLOW_LOAD} hook carries the spawn reason and can veto the load, which covers this
+	 * without a Mixin; NeoForge's {@code EntityJoinLevelEvent} is the same shape. The platform
+	 * wires us to whichever it has.
 	 *
 	 * <p>This runs for every entity entering every level, so the ordering of these checks is
 	 * deliberate: cheapest and most selective first.

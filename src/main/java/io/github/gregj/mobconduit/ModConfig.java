@@ -7,7 +7,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -194,7 +193,7 @@ public final class ModConfig {
 	}
 
 	private static Path configPath() {
-		return FabricLoader.getInstance().getConfigDir().resolve(MobConduit.MOD_ID + ".json");
+		return MobConduit.platform().configDir().resolve(MobConduit.MOD_ID + ".json");
 	}
 
 	/**
