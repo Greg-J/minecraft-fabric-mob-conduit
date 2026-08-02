@@ -149,6 +149,10 @@ public class MobConduit implements ModInitializer {
 	 * conduit destroyed mid-erasure still gets its light blocks faded out and cleared.
 	 */
 	private static void onLevelTick(ServerLevel level) {
+		if (RadiusVisualizer.isActive()) {
+			RadiusVisualizer.tick(level);
+		}
+
 		if (ConduitStore.anyActive() || ConduitStore.anyPendingEffects()) {
 			ConduitStore store = ConduitStore.get(level);
 			store.drainDeactivations(level);

@@ -17,9 +17,10 @@ import net.minecraft.world.level.block.Blocks;
 import java.util.List;
 
 /**
- * {@code /mobconduit} with six subcommands: {@code reload}, {@code status} / {@code status off},
- * {@code sweep}, {@code set}, {@code get} and {@code build}. Plain chat output only — the mod
- * registers nothing and a vanilla client sees ordinary text.
+ * {@code /mobconduit} with seven subcommands: {@code reload}, {@code status} /
+ * {@code status off}, {@code sweep}, {@code set}, {@code get}, {@code build} and
+ * {@code visualize}. Plain chat output only — the mod registers nothing and a vanilla client
+ * sees ordinary text.
  */
 public final class MobConduitCommand {
 	private MobConduitCommand() {
@@ -44,7 +45,8 @@ public final class MobConduitCommand {
 								.executes(MobConduitCommand::getConfig)))
 				.then(Commands.literal("build")
 						.then(Commands.argument("pos", BlockPosArgument.blockPos())
-								.executes(context -> build(context, BlockPosArgument.getBlockPos(context, "pos")))));
+								.executes(context -> build(context, BlockPosArgument.getBlockPos(context, "pos")))))
+			.then(Commands.literal("visualize").executes(MobConduitCommand::visualize));
 
 		dispatcher.register(root);
 	}
@@ -81,6 +83,21 @@ public final class MobConduitCommand {
 		context.getSource().sendSuccess(() -> Component.literal(key + " = " + effective + " (saved)"
 				+ (finalDropped > 0 ? " — " + finalDropped + " conduit(s) no longer valid" : "")), true);
 		return 1;
+	}
+
+	/**
+	 * Draws every active conduit's coverage sphere in particles for a few seconds, so the edge
+	 * is visible before more frame blocks go down.
+	 */
+	private static int visualize(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		ServerLevel level = source.getLevel();
+		int armed = RadiusVisualizer.arm(level, ConduitStore.get(level).conduits());
+
+		source.sendSuccess(() -> Component.literal(armed == 0
+				? "No active Mob Conduits in this dimension to visualize."
+				: "Showing the coverage of " + armed + " conduit(s) for 10 seconds."), false);
+		return armed;
 	}
 
 	private static int getConfig(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
