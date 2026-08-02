@@ -8,6 +8,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.phys.AABB;
 
+import java.util.List;
+
 /**
  * A floating status line above the crystal, built from a vanilla {@code text_display} entity —
  * the most "modded" thing a vanilla client can be shown without installing anything. The
@@ -69,24 +71,25 @@ public final class Holograms {
 		}
 	}
 
-	/** Removes the hologram at this position if one exists. Safe on unloaded chunks. */
+	/** Removes every hologram at this position. Safe on unloaded chunks. */
 	public static void remove(ServerLevel level, BlockPos pos) {
-		Display.TextDisplay existing = find(level, pos);
-
-		if (existing != null) {
-			existing.remove(Entity.RemovalReason.DISCARDED);
+		for (Display.TextDisplay display : findAll(level, pos)) {
+			display.remove(Entity.RemovalReason.DISCARDED);
 		}
 	}
 
 	private static Display.TextDisplay find(ServerLevel level, BlockPos crystalPos) {
-		// Section-storage query: cannot force a chunk load, and finds nothing when unloaded —
-		// which is correct, because the saved hologram is deduped on the next activation.
-		for (Display.TextDisplay display : level.getEntitiesOfClass(Display.TextDisplay.class,
-				new AABB(crystalPos).inflate(1.5), entity -> entity.entityTags().contains(TAG))) {
-			return display;
-		}
+		List<Display.TextDisplay> found = findAll(level, crystalPos);
+		return found.isEmpty() ? null : found.getFirst();
+	}
 
-		return null;
+	private static List<Display.TextDisplay> findAll(ServerLevel level, BlockPos crystalPos) {
+		// Section-storage query: cannot force a chunk load, and finds nothing when unloaded —
+		// which is correct, because the saved hologram is deduped on the next activation. The
+		// box must reach the hologram's own height, HEIGHT_ABOVE_CRYSTAL above the crystal.
+		return level.getEntitiesOfClass(Display.TextDisplay.class,
+				new AABB(crystalPos).inflate(1.5, HEIGHT_ABOVE_CRYSTAL + 1.0, 1.5),
+				entity -> entity.entityTags().contains(TAG));
 	}
 
 	private static Component text(Conduit conduit) {
