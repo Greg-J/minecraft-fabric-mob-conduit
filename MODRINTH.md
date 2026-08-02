@@ -70,5 +70,5 @@ erects a full structure for testing.
 
 ## Requirements
 
-Minecraft 26.2, Fabric Loader 0.19.3+, Fabric API, Java 25. Server side only, clients need
-nothing.
+Minecraft 26.2, Java 25. Fabric Loader 0.19.3+ with Fabric API, NeoForge 26.2.x, or any recent
+Paper/Spigot — one jar works on all of them. Server side only, clients need nothing.

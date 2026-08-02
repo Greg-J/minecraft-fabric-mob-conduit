@@ -1,7 +1,8 @@
 # CLAUDE.md — Mob Conduit
 
-Fabric mod for Minecraft. Mod ID `mob-conduit`, maven group / base package
-`io.github.gregj.mobconduit`.
+Multi-loader Minecraft mod: Fabric, NeoForge, Paper and Spigot, from one codebase. Mod ID
+`mob-conduit` (Fabric/Bukkit), `mobconduit` (NeoForge — its modids disallow hyphens), maven
+group / base package `io.github.gregj.mobconduit`.
 
 **Naming gotcha:** the mod ID contains a hyphen, which is illegal in Java identifiers. Use
 `mob-conduit` for the mod ID, resource namespaces, and asset paths. Use `mobconduit` wherever
@@ -16,6 +17,8 @@ document:
 | Fabric Loader | `0.19.3` |
 | Fabric API | `0.156.0+26.2` |
 | Loom | `1.17-SNAPSHOT` (a moving snapshot, not a pinned release) |
+| NeoForge | `26.2.0.40-beta` (ModDevGradle 2.0.141) |
+| Paper API | `26.2.build.91-stable` (compile target; runs on Spigot too) |
 | Java | 25 |
 
 `build.gradle` calls `splitEnvironmentSourceSets()`, so common code lives in `src/main` and
@@ -310,49 +313,80 @@ source set, and do not copy vanilla source files into `src/`.
 ## Commands
 
 ```
-./gradlew runServer                     launch a dev dedicated server (primary test target)
-./gradlew runClient                     launch the dev client
-./gradlew runDatagen                    regenerate data pack JSON into src/main/generated/
-./gradlew build                         produce the jar in build/libs/
+./gradlew runServer                     launch a dev dedicated Fabric server (primary test target)
+./gradlew :neoforge:runServer           launch a dev NeoForge server (neoforge/run)
+./gradlew build                         produce the Fabric jar in build/libs/
+./gradlew mergeJar                      produce the all-platform uber-jar (build/libs/mob-conduit-<v>-all.jar)
 ./gradlew genSources                    repopulate Loom's decompile cache
 ./gradlew build --refresh-dependencies  fix Gradle/Loom cache corruption
 ./gradlew tasks                         list available tasks if one above is missing
 ```
 
-Distribution jar is `build/libs/mob-conduit-<version>.jar`. The `-dev` and `-sources` jars are
-build artifacts, not releases.
+Distribution artifacts: `build/libs/mob-conduit-<version>.jar` (Fabric),
+`neoforge/build/libs/mob-conduit-neoforge-<version>.jar` (NeoForge),
+`bukkit/build/libs/mob-conduit-bukkit-<version>.jar` (Paper/Spigot), and
+`build/libs/mob-conduit-<version>-all.jar` (one jar that loads on all four loaders — the
+release artifact). The `-dev` and `-sources` jars are build artifacts, not releases.
+
+**In-game verification:** the dev servers run with RCON on (`rcon.password=mobconduit`,
+port 25575) and `pause-when-empty-seconds=0` (26.2 pauses empty dedicated servers; without
+this nothing ticks and every test looks broken). `tools/rcon.py "<command>" [port]` drives
+them: `/mobconduit build 0 100 0` plus `execute if block/entity` queries cover activation,
+hologram, deactivation, sweeps and config paths headlessly.
 
 ## Layout
 
 ```
-src/main/java/          common code — all of this mod's logic lives here
+src/main/java/          loader-neutral core (Mojang-mapped) + Platform SPI + fabric/ entrypoint
 src/client/java/        client-only — should stay EMPTY, see the server-side-only rule
-src/main/resources/     fabric.mod.json, the mixins config, data
-src/main/generated/     datagen output — DO NOT hand-edit, regenerate instead
-tools/                  unpack-decompiled-sources.py
+src/main/resources/     fabric.mod.json, the shared mixins config, data
+neoforge/               NeoForge module (ModDevGradle): adapter, reason-capture mixin,
+                        neoforge.mods.toml, accesstransformer.cfg
+bukkit/                 Bukkit module: full sibling implementation against the pure Bukkit
+                        API (Paper first, Spigot-compatible, no mixins)
+docs/superpowers/       specs and plans
+tools/                  unpack-decompiled-sources.py, publish-*.py, rcon.py
 run/                    dev world and logs, gitignored
 .minecraft-src/         decompiled Minecraft, gitignored, never committed
 ```
+
+**Multi-loader architecture.** The core in `src/main/java` is plain vanilla code; everything
+loader-specific is behind `io.github.gregj.mobconduit.Platform` (event registration, config
+dir, spawn-reason lookup). Fabric wires it in `fabric/FabricPlatform`; NeoForge in
+`neoforge/NeoForgePlatform` (plus an `EntityTypeMixin` that replicates Fabric's spawn-reason
+capture and an access transformer for the two `Display` methods Fabric's access wideners make
+public — **`.minecraft-src` shows those as public because it was decompiled from the
+AW-patched jar; do not trust it for visibility**). The Bukkit module shares no code with the
+NMS tree — `org.bukkit.*` is a disjoint API — it is a sibling implementation held to the same
+behavior by spec and by the shared RCON battery. Rule of thumb: NMS changes go in the core and
+flow to Fabric + NeoForge; Bukkit needs the matching change in `bukkit/` — make both in the
+same commit.
 
 ## Conventions
 
 **Prefer Fabric API events over Mixins.** Only write a Mixin when no event or API hook exists.
 Check Fabric API first and say what you searched for if you conclude no hook exists.
 
-**Mixin rules.**
+**Mixin rules.** (Fabric and NeoForge only — the Bukkit module has no mixin framework and must
+stay pure-API.)
 - Get the target method name and signature from `./.minecraft-src/`, never from memory.
 - Prefix injected method names `mobconduit$` (no hyphen — hyphens are illegal in Java
   identifiers). Unprefixed names collide with other mods targeting the same class.
-- Register every Mixin in the mixins config referenced by `fabric.mod.json` — in `mixins` for
-  common code. Nothing should go in `client`. An unregistered Mixin silently does nothing.
+- Shared mixins (vanilla-targeted, loader-neutral) live in the core and are registered in
+  `mob-conduit.mixins.json`, which both `fabric.mod.json` and `neoforge.mods.toml` declare.
+  NeoForge-only mixins live in `neoforge/`'s own package and `mob-conduit.neoforge.mixins.json`.
+  An unregistered Mixin silently does nothing.
 - Keep Mixin bodies tiny. Call out to a normal class; do not put logic inside the Mixin.
 - Mixins are the main cost of every future version bump. Fewer is better.
 
 **Data over code.** If something can be expressed as data pack JSON, generate it with the
 datagen API rather than hardcoding it in Java. Never hand-edit `src/main/generated/`.
 
-**Access.** Need something private in vanilla? Use Class Tweakers (access widening, interface
-injection, enum extension). Do not use reflection.
+**Access.** Need something private in vanilla? On Fabric use Class Tweakers (access widening,
+interface injection, enum extension); on NeoForge add the same lines to
+`neoforge/src/main/resources/META-INF/accesstransformer.cfg`. Do not use reflection. Remember
+`.minecraft-src` is AW-contaminated for visibility — check the real visibility need on both
+loaders.
 
 ## Version bumps
 

@@ -1,7 +1,8 @@
 # Mob Conduit
 
-A Fabric mod for Minecraft **26.2** that adds a player-built multiblock which stops hostile mobs
-spawning around it — built entirely from vanilla blocks, with no new items, blocks, or recipes.
+A Minecraft mod/plugin for **Fabric, NeoForge, Paper and Spigot** (one jar) that adds a
+player-built multiblock which stops hostile mobs spawning around it — built entirely from
+vanilla blocks, with no new items, blocks, or recipes.
 
 **Server-side only.** Players join with an unmodified vanilla client and install nothing. The mod
 registers no new content of any kind, so registry sync is untouched and vanilla clients connect
@@ -58,12 +59,16 @@ horizontal radius at full height.
 
 ## Install
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.3+ for Minecraft 26.2 on your server.
-2. Put [Fabric API](https://modrinth.com/mod/fabric-api) 0.156.0+26.2 in `mods/`.
-3. Put `mob-conduit-1.2.0.jar` in `mods/`.
-4. Start the server. Requires **Java 25**.
+One jar works everywhere: `mob-conduit-1.3.0-all.jar`.
 
-Nothing is installed on the client.
+- **Fabric:** install [Fabric Loader](https://fabricmc.net/use/) 0.19.3+ and
+  [Fabric API](https://modrinth.com/mod/fabric-api) 0.156.0+26.2, then drop the jar in `mods/`.
+- **NeoForge:** install NeoForge 26.2.x, drop the jar in `mods/`.
+- **Paper / Spigot:** drop the jar in `plugins/`.
+
+Minecraft 26.2 and **Java 25** on every platform. Nothing is installed on the client.
+Per-platform jars (`mob-conduit-fabric|neoforge|bukkit`) also exist, but the all jar is the
+release artifact.
 
 ## Commands
 
