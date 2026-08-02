@@ -191,6 +191,8 @@ public class MobConduit implements ModInitializer {
 
 	private static void onServerStopping(net.minecraft.server.MinecraftServer server) {
 		RadiusVisualizer.clearAll();
+		// Static state must not leak into the next world on an integrated server.
+		StatusBoard.disable(server);
 
 		for (ServerLevel level : server.getAllLevels()) {
 			ConduitStore.get(level).forget(level);
