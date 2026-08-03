@@ -7,13 +7,14 @@ import org.bukkit.entity.Player;
  * ({@code player.sendActionBar(Component)}); Spigot only has the legacy
  * {@code player.spigot().sendMessage(ACTION_BAR, ...)}.
  *
- * <p>The two implementations are separate classes loaded lazily: {@link AdventureSender} is
- * instantiated only after the Paper and Adventure checks pass, so its reference to the
- * Adventure {@code Component} API never links on a Spigot runtime, and the legacy sender
+ * <p>The Adventure sender lives in the paper source set (Adventure is not on the spigot-api
+ * classpath) and is instantiated by name only after the Paper and Adventure checks pass, so
+ * neither the class reference nor the API ever links on a Spigot runtime. The legacy sender
  * uses only bungeecord-chat, which both platforms ship.
  */
 public final class ActionBars {
-	interface Sender {
+	/** Loaded reflectively; see {@code paper.PaperActionBarSender}. */
+	public interface Sender {
 		void send(Player player, String message);
 	}
 
@@ -32,7 +33,8 @@ public final class ActionBars {
 
 		try {
 			Class.forName("net.kyori.adventure.audience.Audience");
-			sender = new AdventureSender();
+			sender = (Sender) Class.forName("io.github.gregj.mobconduit.bukkit.paper.PaperActionBarSender")
+					.getDeclaredConstructor().newInstance();
 		} catch (Throwable t) {
 			sender = new LegacySender();
 		}
@@ -40,14 +42,6 @@ public final class ActionBars {
 
 	public static void send(Player player, String message) {
 		sender.send(player, message);
-	}
-
-	/** Paper path: Adventure audience. Loaded only behind {@link #detect()}'s checks. */
-	private static final class AdventureSender implements Sender {
-		@Override
-		public void send(Player player, String message) {
-			player.sendActionBar(net.kyori.adventure.text.Component.text(message));
-		}
 	}
 
 	/** Spigot-safe path: bungeecord-chat, present on both platforms. */

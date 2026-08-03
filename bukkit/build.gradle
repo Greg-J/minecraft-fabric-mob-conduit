@@ -9,15 +9,24 @@ version = rootProject.version
 
 repositories {
 	maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+	maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
 	mavenCentral()
 }
 
+// Two source sets with deliberately different compile classpaths. main compiles against
+// spigot-api alone — so any unguarded Paper-only reference is a build error, not a Spigot
+// runtime surprise. The paper source set compiles against paper-api and holds the Paper-only
+// implementations, which main code instantiates reflectively (see PaperAccess / ActionBars).
+sourceSets {
+	paper {
+		java.srcDir 'src/paper/java'
+		compileClasspath += sourceSets.main.output
+	}
+}
+
 dependencies {
-	// paper-api is a superset of spigot-api and transitively brings gson, adventure and
-	// bungeecord-chat. Paper-only API (Adventure audiences, Entity#getEntitySpawnReason,
-	// Server#getCommandMap) is referenced only from code paths reached behind a runtime
-	// Paper check, so the jar still loads on plain Spigot.
-	compileOnly 'io.papermc.paper:paper-api:26.2.build.91-stable'
+	compileOnly 'org.spigotmc:spigot-api:26.2-R0.1-SNAPSHOT'
+	paperCompileOnly 'io.papermc.paper:paper-api:26.2.build.91-stable'
 }
 
 java {
@@ -45,4 +54,7 @@ jar {
 	from("$rootDir/LICENSE") {
 		rename { "${it}_mob-conduit" }
 	}
+
+	// The Paper-only implementations (loaded reflectively behind runtime checks).
+	from sourceSets.paper.output
 }
