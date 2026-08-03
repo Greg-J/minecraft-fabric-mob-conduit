@@ -82,6 +82,37 @@ def api_get(path, token):
         return json.load(response)
 
 
+def api_patch(path, token, payload):
+    request = urllib.request.Request(
+        f"{API}{path}",
+        data=json.dumps(payload).encode(),
+        method="PATCH",
+        headers={
+            "Authorization": token,
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return response.status
+
+
+def ensure_project_loaders(project, token):
+    """Adds the loaders this release needs to the project's supported list.
+
+    A version's loaders must be a subset of the project's, and a 'mod' project can carry
+    plugin loaders (Pl3xMap does exactly this), so one project hosts every platform.
+    """
+    current = set(project["loaders"])
+    missing = [loader for loader in LOADERS if loader not in current]
+
+    if not missing:
+        return
+
+    print(f"project : adding loaders {missing} (had {sorted(current)})")
+    api_patch(f"/project/{project['id']}", token, {"loaders": sorted(current | set(LOADERS))})
+
+
 def main():
     token = require("MODRINTH_TOKEN")
     project_id = require("MODRINTH_PROJECT_ID")
@@ -114,6 +145,8 @@ def main():
             f"error: version {mod_version} already exists on Modrinth. "
             "Bump mod_version in gradle.properties and tag again."
         )
+
+    ensure_project_loaders(project, token)
 
     metadata = {
         "project_id": project["id"],
