@@ -34,10 +34,10 @@ API = "https://minecraft.curseforge.com/api"
 
 USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
 
-# CurseForge's version taxonomy has one plugin-loader entry, "Bukkit" — there is no
-# "Paper" or "Spigot" entry (a 2026-08-03 upload proved the latter). Plugin users on
-# Paper/Spigot filter on Bukkit.
-LOADER_NAMES = ["Fabric", "NeoForge", "Bukkit"]
+# Loader-named entries that actually exist in CurseForge's taxonomy. Plugin-side compat is
+# handled separately in resolve_game_versions via the bukkit-typed version entry — there is
+# no loader entry named "Bukkit", "Paper" or "Spigot" (2026-08-03 upload attempts).
+LOADER_NAMES = ["Fabric", "NeoForge"]
 JAVA_NAME = "Java 25"
 
 # CurseForge rejects an upload that carries no entry from the Environment group
@@ -114,7 +114,28 @@ def resolve_game_versions(token, mc_version):
     print(f"{JAVA_NAME}: id {java['id']}")
     print(f"{ENVIRONMENT_NAME}: id {environment['id']}")
 
-    return [game_version["id"], *(loader["id"] for loader in loaders), java["id"], environment["id"]]
+    ids = [game_version["id"], *(loader["id"] for loader in loaders), java["id"], environment["id"]]
+
+    # Plugin-side compatibility has no loader-named entry ("Bukkit", "Paper" and "Spigot"
+    # simply do not exist — 2026-08-03 upload attempts). The taxonomy instead carries the
+    # Minecraft version under a bukkit-flavoured version type, so find every entry named
+    # like the MC version whose type mentions bukkit.
+    bukkit_types = {t["id"]: t["slug"] for t in types.values() if "bukkit" in t["slug"].lower()}
+    bukkit_versions = [
+        v for v in candidates
+        if types.get(v["gameVersionTypeID"], {}).get("id") in bukkit_types
+    ]
+
+    if bukkit_versions:
+        for v in bukkit_versions:
+            slug = bukkit_types[v["gameVersionTypeID"]]
+            print(f"{mc_version} ({slug}): id {v['id']}")
+            ids.append(v["id"])
+    else:
+        print(f"warning: no bukkit-typed version entry for {mc_version}; "
+              f"known type slugs: {sorted(t['slug'] for t in types.values())}")
+
+    return ids
 
 
 def encode_multipart(fields, files):
