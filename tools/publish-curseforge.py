@@ -34,7 +34,7 @@ API = "https://minecraft.curseforge.com/api"
 
 USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
 
-LOADER_NAME = "Fabric"
+LOADER_NAMES = ["Fabric", "NeoForge", "Paper", "Spigot"]
 JAVA_NAME = "Java 25"
 
 # CurseForge rejects an upload that carries no entry from the Environment group
@@ -97,16 +97,17 @@ def resolve_game_versions(token, mc_version):
             return v
         sys.exit(f"error: CurseForge has no version entry named {name!r}")
 
-    loader = by_name(LOADER_NAME)
+    loaders = [by_name(name) for name in LOADER_NAMES]
     java = by_name(JAVA_NAME)
     environment = by_name(ENVIRONMENT_NAME, ENVIRONMENT_TYPE_SLUG)
 
     print(f"minecraft {mc_version}: id {game_version['id']}")
-    print(f"{LOADER_NAME}: id {loader['id']}")
+    for name, loader in zip(LOADER_NAMES, loaders):
+        print(f"{name}: id {loader['id']}")
     print(f"{JAVA_NAME}: id {java['id']}")
     print(f"{ENVIRONMENT_NAME}: id {environment['id']}")
 
-    return [game_version["id"], loader["id"], java["id"], environment["id"]]
+    return [game_version["id"], *(loader["id"] for loader in loaders), java["id"], environment["id"]]
 
 
 def encode_multipart(fields, files):

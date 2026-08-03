@@ -17,6 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * overload delegates into the {@code EntitySpawnRequest} overload, so spawners, trial spawners
  * and {@code /summon} record nothing, and {@code SpawnOrigin}'s backfill covers those. The
  * body is a single call; the logic lives in {@link NeoForgeSpawnReasons}.
+ *
+ * <p>Noted for maintainers: NeoForge's own patched {@code Mob.finalizeSpawn} stores the
+ * reason on the mob ({@code Mob#getSpawnType()}), which could replace this capture for mobs.
+ * This mixin stays because it mirrors Fabric's capture exactly and covers non-{@code Mob}
+ * entities uniformly, but if the map ever causes trouble, that is the simpler path.
  */
 @Mixin(EntityType.class)
 public abstract class EntityTypeMixin {

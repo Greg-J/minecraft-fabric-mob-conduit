@@ -82,14 +82,19 @@ jobs:
           fi
 
       - name: build
-        run: ./gradlew build
+        run: ./gradlew build mergeJar
 
       - name: locate jar
         id: jar
         run: |
           set -euo pipefail
-          # -dev and -sources jars are build artifacts, not releases.
-          JAR=$(find build/libs -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -1)
+          # The release artifact is the all-platform uber-jar; fall back to the
+          # plain Fabric jar if mergeJar was not part of the build.
+          JAR=$(find build/libs -name '*-all.jar' | head -1)
+          if [ -z "$JAR" ]; then
+            # -dev and -sources jars are build artifacts, not releases.
+            JAR=$(find build/libs -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -1)
+          fi
           if [ -z "$JAR" ]; then
             echo "::error::No release jar found in build/libs"
             exit 1

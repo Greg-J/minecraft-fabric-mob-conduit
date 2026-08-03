@@ -37,7 +37,7 @@ API = "https://api.modrinth.com/v2"
 # a misbehaving script rather than just blocking it.
 USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
 
-LOADERS = ["fabric"]
+LOADERS = ["fabric", "neoforge", "paper", "spigot"]
 
 
 def require(name):
