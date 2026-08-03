@@ -162,5 +162,6 @@ public final class MobConduitListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onWorldUnload(WorldUnloadEvent event) {
 		ConduitStore.onWorldUnload(event.getWorld());
+		RadiusVisualizer.clearWorld(event.getWorld());
 	}
 }

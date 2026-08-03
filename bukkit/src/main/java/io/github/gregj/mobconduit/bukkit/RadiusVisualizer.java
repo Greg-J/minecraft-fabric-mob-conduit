@@ -71,6 +71,14 @@ public final class RadiusVisualizer {
 		ACTIVE.clear();
 	}
 
+	/**
+	 * Drops one world's visuals. Called on world unload: a visual's countdown only runs while
+	 * its world ticks, so an unloaded world would park its visuals forever.
+	 */
+	public static void clearWorld(World world) {
+		ACTIVE.removeIf(visual -> visual.world == world);
+	}
+
 	public static void tick(World world) {
 		Iterator<Visual> it = ACTIVE.iterator();
 

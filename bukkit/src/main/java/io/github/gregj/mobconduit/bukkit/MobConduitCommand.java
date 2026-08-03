@@ -1,6 +1,7 @@
 package io.github.gregj.mobconduit.bukkit;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -41,6 +42,11 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 		this.plugin = plugin;
 	}
 
+	/** Errors render red, matching what vanilla's sendFailure does on the loaders. */
+	private static void fail(CommandSender sender, String message) {
+		sender.sendMessage(ChatColor.RED + message);
+	}
+
 	void register() {
 		// plugin.yml declares this node for Spigot; the paper-plugin path has no descriptor
 		// permissions section, so define it programmatically there.
@@ -52,9 +58,9 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 		// Paper loads the jar as a paper-plugin (paper-plugin.yml wins over plugin.yml), and
 		// JavaPlugin#getCommand throws on a paper-plugin — paper plugins never read the
 		// plugin.yml commands section — so the command goes into the command map directly.
-		// Server#getCommandMap is Paper-only API, but this branch only runs on Paper.
+		// Server#getCommandMap is Paper-only API, reached through the paper source set.
 		if (PaperAccess.available()) {
-			Bukkit.getCommandMap().register("mobconduit", new Dispatch("mobconduit"));
+			PaperAccess.registerCommand("mobconduit", new Dispatch("mobconduit"));
 			return;
 		}
 
@@ -199,7 +205,7 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 	 */
 	private void setConfig(CommandSender sender, String[] args) {
 		if (args.length < 3) {
-			sender.sendMessage("Usage: /mobconduit set <key> <value>");
+			fail(sender, "Usage: /mobconduit set <key> <value>");
 			return;
 		}
 
@@ -210,7 +216,7 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 		try {
 			effective = ModConfig.set(key, value);
 		} catch (IllegalArgumentException e) {
-			sender.sendMessage(e.getMessage());
+			fail(sender, e.getMessage());
 			return;
 		}
 
@@ -221,14 +227,14 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 
 	private void getConfig(CommandSender sender, String[] args) {
 		if (args.length < 2) {
-			sender.sendMessage("Usage: /mobconduit get <key>");
+			fail(sender, "Usage: /mobconduit get <key>");
 			return;
 		}
 
 		try {
 			sender.sendMessage(args[1] + " = " + ModConfig.describe(args[1]));
 		} catch (IllegalArgumentException e) {
-			sender.sendMessage(e.getMessage());
+			fail(sender, e.getMessage());
 		}
 	}
 
@@ -241,7 +247,7 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 	 */
 	private void build(CommandSender sender, String[] args) {
 		if (args.length < 4) {
-			sender.sendMessage("Usage: /mobconduit build <x> <y> <z>");
+			fail(sender, "Usage: /mobconduit build <x> <y> <z>");
 			return;
 		}
 
@@ -252,11 +258,18 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 		int z;
 
 		try {
-			x = parseCoordinate(args[1], origin.getBlockX());
-			y = parseCoordinate(args[2], origin.getBlockY());
-			z = parseCoordinate(args[3], origin.getBlockZ());
+			if (args[1].startsWith("^") && args[2].startsWith("^") && args[3].startsWith("^")) {
+				int[] local = parseCaretCoordinates(args, origin, sourceDirection(sender));
+				x = local[0];
+				y = local[1];
+				z = local[2];
+			} else {
+				x = parseCoordinate(args[1], origin.getBlockX());
+				y = parseCoordinate(args[2], origin.getBlockY());
+				z = parseCoordinate(args[3], origin.getBlockZ());
+			}
 		} catch (NumberFormatException e) {
-			sender.sendMessage("Coordinates must be integers or ~ relative, got '" + e.getMessage() + "'");
+			fail(sender, "Coordinates must be integers, ~ relative or ^ local, got '" + e.getMessage() + "'");
 			return;
 		}
 
@@ -291,6 +304,47 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 		}
 
 		return Integer.parseInt(raw);
+	}
+
+	/** The sender's look direction; command blocks and console face south, vanilla's fallback. */
+	private static org.bukkit.util.Vector sourceDirection(CommandSender sender) {
+		if (sender instanceof Entity entity) {
+			return entity.getLocation().getDirection();
+		}
+
+		return new org.bukkit.util.Vector(0, 0, 1);
+	}
+
+	/**
+	 * Vanilla local coordinates: {@code ^left ^up ^forwards} relative to the look direction.
+	 * Like vanilla, they are all-or-nothing — mixing {@code ^} with {@code ~} is rejected by
+	 * the caller branching on every argument starting with {@code ^}.
+	 */
+	private static int[] parseCaretCoordinates(String[] args, Location origin, org.bukkit.util.Vector forward) {
+		double left = parseCaretComponent(args[1]);
+		double up = parseCaretComponent(args[2]);
+		double ahead = parseCaretComponent(args[3]);
+
+		org.bukkit.util.Vector flat = forward.clone().setY(0);
+
+		if (flat.lengthSquared() < 1.0e-8) {
+			// Looking straight up or down: vanilla still needs a horizontal axis.
+			flat = new org.bukkit.util.Vector(0, 0, 1);
+		}
+
+		flat.normalize();
+		// up × forward, not forward × up: facing south (+Z), local +X is east, the left hand.
+		org.bukkit.util.Vector leftAxis = new org.bukkit.util.Vector(0, 1, 0).crossProduct(flat);
+		org.bukkit.util.Vector result = origin.toVector()
+				.add(leftAxis.multiply(left))
+				.add(new org.bukkit.util.Vector(0, up, 0))
+				.add(flat.multiply(ahead));
+
+		return new int[] {result.getBlockX(), result.getBlockY(), result.getBlockZ()};
+	}
+
+	private static double parseCaretComponent(String raw) {
+		return raw.equals("^") ? 0.0 : Double.parseDouble(raw.substring(1));
 	}
 
 	/**
