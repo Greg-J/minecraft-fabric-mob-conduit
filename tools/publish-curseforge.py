@@ -34,7 +34,10 @@ API = "https://minecraft.curseforge.com/api"
 
 USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
 
-LOADER_NAMES = ["Fabric", "NeoForge", "Paper", "Spigot"]
+# CurseForge's version taxonomy has one plugin-loader entry, "Bukkit" — there is no
+# "Paper" or "Spigot" entry (a 2026-08-03 upload proved the latter). Plugin users on
+# Paper/Spigot filter on Bukkit.
+LOADER_NAMES = ["Fabric", "NeoForge", "Bukkit"]
 JAVA_NAME = "Java 25"
 
 # CurseForge rejects an upload that carries no entry from the Environment group
@@ -95,7 +98,11 @@ def resolve_game_versions(token, mc_version):
             if type_slug and types.get(v["gameVersionTypeID"], {}).get("slug") != type_slug:
                 continue
             return v
-        sys.exit(f"error: CurseForge has no version entry named {name!r}")
+
+        # List near-matches so a taxonomy change shows up in the log instead of a bare exit.
+        near = sorted({v["name"] for v in versions if name.lower() in v["name"].lower()
+                       or v["name"].lower() in name.lower()})
+        sys.exit(f"error: CurseForge has no version entry named {name!r}; near matches: {near}")
 
     loaders = [by_name(name) for name in LOADER_NAMES]
     java = by_name(JAVA_NAME)

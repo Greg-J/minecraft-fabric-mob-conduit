@@ -141,10 +141,10 @@ def main():
     print(f"version : {mod_version} [{version_type}] for MC {mc_version}")
 
     if mod_version in taken:
-        sys.exit(
-            f"error: version {mod_version} already exists on Modrinth. "
-            "Bump mod_version in gradle.properties and tag again."
-        )
+        # Not an error: the pipeline has multiple targets (Modrinth, CurseForge), and a
+        # re-run to fill one that failed must not be blocked by the ones that worked.
+        print(f"version {mod_version} already exists on Modrinth; skipping")
+        return
 
     ensure_project_loaders(project, token)
 
