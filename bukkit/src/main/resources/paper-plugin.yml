@@ -1,6 +1,0 @@
-name: MobConduit
-version: ${version}
-main: io.github.gregj.mobconduit.bukkit.MobConduitPlugin
-api-version: '26.2'
-description: A player-built multiblock that suppresses natural hostile spawning in a radius, built entirely from vanilla blocks. Server-side only; vanilla clients connect unmodified.
-authors: [gregj]

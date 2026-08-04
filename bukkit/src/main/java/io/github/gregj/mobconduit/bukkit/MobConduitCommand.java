@@ -13,8 +13,6 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
-import org.bukkit.permissions.Permission;
-import org.bukkit.permissions.PermissionDefault;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,13 +24,13 @@ import java.util.List;
  * {@code visualize}. Plain chat output only — the plugin registers nothing and a vanilla
  * client sees ordinary text.
  *
- * <p>Two registration paths, one handler: on Spigot the command comes from plugin.yml; on
- * Paper the jar loads as a paper-plugin (paper-plugin.yml wins over plugin.yml), and paper
- * plugins never read the plugin.yml commands section, so the command is registered with the
- * command map directly instead.
+ * <p>One registration path on both platforms: plugin.yml declares the command and the
+ * permission, and {@code setExecutor}/{@code setTabCompleter} is all it needs. The jar ships no
+ * paper-plugin.yml, so Paper reads plugin.yml exactly like Spigot — a paper-plugin descriptor
+ * would have suppressed the commands section and forced a command-map registration for nothing,
+ * since this plugin uses no bootstrapper, loader, or isolated classloading.
  */
 public final class MobConduitCommand implements CommandExecutor, TabCompleter {
-	private static final String PERMISSION = "mobconduit.admin";
 	private static final List<String> SUBCOMMANDS = List.of(
 			"reload", "status", "sweep", "set", "get", "build", "visualize");
 
@@ -48,48 +46,13 @@ public final class MobConduitCommand implements CommandExecutor, TabCompleter {
 	}
 
 	void register() {
-		// plugin.yml declares this node for Spigot; the paper-plugin path has no descriptor
-		// permissions section, so define it programmatically there.
-		if (Bukkit.getPluginManager().getPermission(PERMISSION) == null) {
-			Bukkit.getPluginManager().addPermission(
-					new Permission(PERMISSION, "Mob Conduit admin commands.", PermissionDefault.OP));
-		}
-
-		// Paper loads the jar as a paper-plugin (paper-plugin.yml wins over plugin.yml), and
-		// JavaPlugin#getCommand throws on a paper-plugin — paper plugins never read the
-		// plugin.yml commands section — so the command goes into the command map directly.
-		// Server#getCommandMap is Paper-only API, reached through the paper source set.
-		if (PaperAccess.available()) {
-			PaperAccess.registerCommand("mobconduit", new Dispatch("mobconduit"));
-			return;
-		}
-
-		// Spigot: the plugin.yml command. setExecutor/setTabCompleter is all it needs.
+		// plugin.yml declares both the command and the mobconduit.admin node (default: op), on
+		// Paper and Spigot alike, because the jar ships no paper-plugin.yml.
 		PluginCommand command = this.plugin.getCommand("mobconduit");
 
 		if (command != null) {
 			command.setExecutor(this);
 			command.setTabCompleter(this);
-		}
-	}
-
-	/** Command-map dispatch used when plugin.yml commands are not in play (Paper). */
-	private final class Dispatch extends Command {
-		private Dispatch(String name) {
-			super(name);
-			setDescription("Mob Conduit administration.");
-			setUsage("/mobconduit <reload|status|sweep|set|get|build|visualize>");
-			setPermission(PERMISSION);
-		}
-
-		@Override
-		public boolean execute(CommandSender sender, String label, String[] args) {
-			return MobConduitCommand.this.onCommand(sender, this, label, args);
-		}
-
-		@Override
-		public List<String> tabComplete(CommandSender sender, String alias, String[] args) {
-			return MobConduitCommand.this.onTabComplete(sender, this, alias, args);
 		}
 	}
 

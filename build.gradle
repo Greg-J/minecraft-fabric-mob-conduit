@@ -25,12 +25,6 @@ loom {
 	}
 }
 
-fabricApi {
-	configureDataGeneration {
-		client = true
-	}
-}
-
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -74,7 +68,8 @@ jar {
 
 // One uber-jar that loads on every platform: the Fabric jar (with the shared loader-neutral
 // core and fabric.mod.json), the NeoForge adapter (neoforge.mods.toml, access transformer,
-// reason-capture mixin), and the Bukkit plugin (plugin.yml + paper-plugin.yml). Shared classes
+// reason-capture mixin), and the Bukkit plugin (plugin.yml — Paper reads it too, the jar ships
+// no paper-plugin.yml). Shared classes
 // appear in all three inputs and are byte-identical, so EXCLUDE dedups them. Each loader reads
 // only its own descriptor and ignores the rest.
 //
@@ -102,7 +97,7 @@ afterEvaluate {
 			// A missing descriptor silently degrades the uber-jar to a subset of platforms.
 			def zip = new java.util.zip.ZipFile(archiveFile.get().asFile)
 			try {
-				['fabric.mod.json', 'META-INF/neoforge.mods.toml', 'plugin.yml', 'paper-plugin.yml'].each { name ->
+				['fabric.mod.json', 'META-INF/neoforge.mods.toml', 'plugin.yml'].each { name ->
 					if (zip.getEntry(name) == null) {
 						throw new GradleException("uber-jar is missing $name")
 					}

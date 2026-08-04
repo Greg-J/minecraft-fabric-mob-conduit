@@ -43,7 +43,7 @@ processResources {
 	def projectVersion = project.version
 	inputs.property 'version', projectVersion
 
-	filesMatching(['plugin.yml', 'paper-plugin.yml']) {
+	filesMatching('plugin.yml') {
 		expand 'version': projectVersion
 	}
 }

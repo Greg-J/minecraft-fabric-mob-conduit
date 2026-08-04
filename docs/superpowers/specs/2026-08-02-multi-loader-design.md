@@ -67,8 +67,13 @@ Mechanism mapping (verified against Paper/Spigot javadocs and paper-server sourc
 | Commands | `plugin.yml` + `CommandExecutor` + `TabCompleter` (same subcommands) |
 | Config | same Gson schema, same keys, `mob-conduit.json` in the plugin folder |
 
-Both `plugin.yml` (Spigot) and `paper-plugin.yml` (Paper preferred) in the jar; Paper accepts
-either. No Folia support declared.
+Only `plugin.yml` in the jar. A `paper-plugin.yml` was shipped initially, but it declared
+strictly less (no commands, no permissions) while forcing Paper onto the paper-plugin path,
+which never reads plugin.yml's commands section — costing a command-map registration branch, a
+`Command` subclass and a programmatic permission node to undo. The plugin declares no
+bootstrapper, loader or library, so it used nothing paper-plugins provide. Dropped 2026-08-03;
+verified on a real Paper 26.2 server, which loads it as a Bukkit plugin and registers the
+command from plugin.yml. No Folia support declared.
 
 ## 4. Build layout
 
@@ -76,8 +81,8 @@ either. No Folia support declared.
 - `neoforge/` subproject: MDG, compiles the shared NMS tree (Fabric files excluded) + adapter.
 - `bukkit/` subproject: plain `java-library`, paper-api + spigot-api provided deps.
 - `mergeJar` task: one uber-jar = shared NMS classes + both NMS entrypoints + bukkit classes +
-  all four descriptors (`fabric.mod.json`, `META-INF/neoforge.mods.toml`, `plugin.yml`,
-  `paper-plugin.yml`) + both mixin configs. Per-platform jars still built.
+  all three descriptors (`fabric.mod.json`, `META-INF/neoforge.mods.toml`, `plugin.yml`) +
+  both mixin configs + the access transformer. Per-platform jars still built.
 - `settings.gradle` includes the two new subprojects.
 
 ## 5. Verification

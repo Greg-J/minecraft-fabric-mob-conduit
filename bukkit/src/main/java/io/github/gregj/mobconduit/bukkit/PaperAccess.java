@@ -9,7 +9,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
  *
  * <p>Two mechanisms, two layers of safety. {@link #available()} is a pure reflection check,
  * safe anywhere. Everything Paper-specific lives in the {@code paper} source set (compiled
- * against paper-api): {@link SpawnReasons} reads Paper's entity-stamped spawn reason, and the
+ * against paper-api): {@code PaperHooks} reads Paper's entity-stamped spawn reason, and the
  * action-bar sender in {@code ActionBars} comes from there too. Both are loaded by name, so
  * the main sources never reference Paper-only members — the build proves it, because main
  * compiles against spigot-api alone.
@@ -18,8 +18,6 @@ public final class PaperAccess {
 	/** Paper-only operations; implemented in the paper source set, loaded by name. */
 	public interface Hooks {
 		SpawnReason spawnReason(Entity entity);
-
-		void registerCommand(String fallbackPrefix, org.bukkit.command.Command command);
 	}
 
 	private static final boolean PAPER = detectPaper();
@@ -64,13 +62,5 @@ public final class PaperAccess {
 	/** Paper's own spawn-reason record; null off Paper, or for disk-loaded and unseen paths. */
 	public static SpawnReason spawnReason(Entity entity) {
 		return HOOKS != null ? HOOKS.spawnReason(entity) : null;
-	}
-
-	/**
-	 * Registers a command with the server's command map. Paper-only because paper plugins
-	 * never read the plugin.yml commands section; call only behind {@link #available()}.
-	 */
-	public static void registerCommand(String fallbackPrefix, org.bukkit.command.Command command) {
-		HOOKS.registerCommand(fallbackPrefix, command);
 	}
 }
