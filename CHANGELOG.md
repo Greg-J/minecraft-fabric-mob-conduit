@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.1
+
+Bug fixes from a full review of the multi-loader tree, verified end-to-end against real Fabric,
+NeoForge and Paper servers running the packaged jar.
+
+- **Conduits survive a clean shutdown.** Server teardown ran before the world save and emptied
+  the conduit list first, so a conduit built since the last autosave was erased from saved data
+  on `/stop`. In practice the conduit re-derived itself from its crystal and frame within two
+  seconds of the chunk loading, so this was invisible in play — but the saved state was wrong.
+- **`/mobconduit visualize` draws the coverage sphere.** Two of its three rings were collapsing
+  into diagonal lines because both of their coordinates came from the same term, and the one
+  real ring was too sparse to see at a 128-block radius. All three are now true great circles,
+  drawn together, with spacing that scales with the radius.
+- **Config keys set to `null` in the JSON are reachable again.** They vanished from
+  `/mobconduit get`, `set` and tab-completion, and disappeared from the file on the next save.
+  Any nulled key now falls back to its documented default.
+- **Disabling a dimension no longer strands a light block and a hologram** on a conduit whose
+  chunk was unloaded at the time. They stayed there permanently, with nothing able to clear them.
+- **Paper / Spigot: crystals are detected however they arrive.** Only crystals a player placed
+  by hand were tracked, so one summoned by a command, another plugin or a structure never formed
+  a conduit until its chunk cycled.
+- **Paper / Spigot: the plugin now loads through `plugin.yml`** on both platforms. The
+  `paper-plugin.yml` descriptor declared strictly less while forcing a separate command
+  registration path; dropping it removes that split. No change to how you use it.
+- Cancelled world unloads are honoured; repeat `visualize` calls no longer stack; a mob caught
+  by two overlapping conduits is only condemned once; the NeoForge build ships its icon.
+
 ## 1.3.0
 
 **One jar, four loaders.** Mob Conduit now runs on Fabric, NeoForge, Paper and Spigot from a

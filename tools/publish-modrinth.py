@@ -35,7 +35,7 @@ API = "https://api.modrinth.com/v2"
 
 # Modrinth asks projects to identify themselves so they can get in touch about
 # a misbehaving script rather than just blocking it.
-USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
+USER_AGENT = "Greg-J/minecraft-universal-mob-conduit/publish-script"
 
 LOADERS = ["fabric", "neoforge", "paper", "spigot"]
 

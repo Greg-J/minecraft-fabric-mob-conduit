@@ -32,7 +32,7 @@ from pathlib import Path
 
 API = "https://minecraft.curseforge.com/api"
 
-USER_AGENT = "Greg-J/minecraft-fabric-mob-conduit/publish-script"
+USER_AGENT = "Greg-J/minecraft-universal-mob-conduit/publish-script"
 
 # Loader-named entries that actually exist in CurseForge's taxonomy. Plugin-side compat is
 # handled separately in resolve_game_versions via the bukkit-typed version entry — there is
