@@ -9,8 +9,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
-import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 
@@ -23,9 +23,10 @@ public final class MobConduitListener implements Listener {
 	/**
 	 * Spawn suppression. {@link CreatureSpawnEvent} is the Bukkit counterpart of the Fabric
 	 * mod's {@code ALLOW_LOAD} veto, and carries a richer reason set than vanilla's
-	 * {@code EntitySpawnReason}: raids, patrols, sieges, reinforcements and portal piglins
-	 * arrive with explicit reasons here, so they keep spawning inside the radius by design —
-	 * the leaks the Fabric platform cannot close, this one can.
+	 * {@code EntitySpawnReason}: raids, patrols, sieges, reinforcements and portal piglins each
+	 * arrive with their own explicit reason here rather than sharing a vague one. That makes the
+	 * natural/non-natural split more precise than on Fabric, not broader — those paths keep
+	 * spawning inside the radius on both platforms, by design.
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onCreatureSpawn(CreatureSpawnEvent event) {
@@ -141,9 +142,20 @@ public final class MobConduitListener implements Listener {
 		}
 	}
 
-	/** A freshly placed crystal enters the tracked set; the poll validates it within 2s. */
+	/**
+	 * Any crystal entering the world enters the tracked set; the poll validates it within 2s.
+	 *
+	 * <p>{@code EntitySpawnEvent} rather than {@code EntityPlaceEvent}. Place does fire for end
+	 * crystals — it is one of its four documented placements, alongside armor stands, boats and
+	 * minecarts — but only for the item-use path, so a crystal arriving by {@code /summon}, from
+	 * another plugin, or from a structure into an already-loaded chunk was never tracked and its
+	 * conduit never formed until the chunk cycled. Fabric has no such gap, because it hooks the
+	 * crystal's own tick. This fires for every entity add, so the body stays one instanceof and
+	 * {@code track} is a putIfAbsent. Chunk-loaded crystals do not come through here;
+	 * {@link #onEntitiesLoad} covers those.
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void onEntityPlace(EntityPlaceEvent event) {
+	public void onEntitySpawn(EntitySpawnEvent event) {
 		if (event.getEntity() instanceof EnderCrystal crystal) {
 			ConduitDetector.track(crystal);
 		}
@@ -159,7 +171,9 @@ public final class MobConduitListener implements Listener {
 		}
 	}
 
-	@EventHandler(priority = EventPriority.MONITOR)
+	// ignoreCancelled: WorldUnloadEvent is cancellable, and tearing the store down on a world
+	// that then keeps running would restore base blocks and drop in-flight effects under it.
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWorldUnload(WorldUnloadEvent event) {
 		ConduitStore.onWorldUnload(event.getWorld());
 		RadiusVisualizer.clearWorld(event.getWorld());
