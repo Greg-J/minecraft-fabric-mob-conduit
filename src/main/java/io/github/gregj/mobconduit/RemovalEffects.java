@@ -12,7 +12,9 @@ import net.minecraft.world.level.block.LightBlock;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The three-stage erasure a mob goes through when a conduit activates on top of it.
@@ -42,6 +44,14 @@ public final class RemovalEffects {
 	private static final int FADE_STEPS = LightBlock.MAX_LEVEL;
 
 	private static final int LEVEL_PER_STEP = 1;
+
+	/**
+	 * Everything currently queued or armed. Overlapping conduits, and a forcefield interval
+	 * shorter than the arm delay, would otherwise condemn the same mob repeatedly: duplicate
+	 * light attempts, wasted budget, and a pendingCount that reads high. Entity does not override
+	 * equals, so this is identity comparison, which is what we want.
+	 */
+	private final Set<Mob> inFlight = new HashSet<>();
 
 	private final ArrayDeque<Queued> queued = new ArrayDeque<>();
 	private final List<Doomed> armed = new ArrayList<>();
@@ -79,7 +89,9 @@ public final class RemovalEffects {
 
 	public void enqueue(List<Mob> mobs, BlockPos sourceConduit) {
 		for (Mob mob : mobs) {
-			this.queued.add(new Queued(mob, sourceConduit));
+			if (this.inFlight.add(mob)) {
+				this.queued.add(new Queued(mob, sourceConduit));
+			}
 		}
 	}
 
@@ -160,6 +172,7 @@ public final class RemovalEffects {
 			}
 
 			it.remove();
+			this.inFlight.remove(doomed.mob);
 			vanish(level, config, doomed.mob, doomed.sourceConduit);
 
 			if (doomed.lightPos != null) {
@@ -181,12 +194,14 @@ public final class RemovalEffects {
 			Mob mob = next.mob();
 
 			if (mob.isRemoved()) {
+				this.inFlight.remove(mob);
 				continue;
 			}
 
 			BlockPos lightPos = placeLight(level, config, mob);
 
 			if (config.removalLightDelayTicks() <= 0) {
+				this.inFlight.remove(mob);
 				vanish(level, config, mob, next.sourceConduit());
 
 				if (lightPos != null) {
@@ -330,5 +345,6 @@ public final class RemovalEffects {
 		this.fading.clear();
 		this.armed.clear();
 		this.queued.clear();
+		this.inFlight.clear();
 	}
 }

@@ -50,18 +50,42 @@ public final class RadiusVisualizer {
 	private RadiusVisualizer() {
 	}
 
-	/** Arms one visual per conduit with a real radius. Returns how many. */
+	/**
+	 * Arms one visual per conduit with a real radius. Returns how many.
+	 *
+	 * <p>Re-running the command restarts an existing visual rather than stacking a second one on
+	 * the same conduit, which would double its particle rate for the overlap.
+	 */
 	public static int arm(ServerLevel level, List<Conduit> conduits) {
 		int armed = 0;
 
 		for (Conduit conduit : conduits) {
-			if (conduit.radius() > 0) {
-				ACTIVE.add(new Visual(level, conduit.pos(), conduit.radius(), conduit.cylindrical(), DURATION_TICKS));
-				armed++;
+			if (conduit.radius() <= 0) {
+				continue;
 			}
+
+			Visual existing = find(level, conduit.pos());
+
+			if (existing != null) {
+				existing.ticksLeft = DURATION_TICKS;
+			} else {
+				ACTIVE.add(new Visual(level, conduit.pos(), conduit.radius(), conduit.cylindrical(), DURATION_TICKS));
+			}
+
+			armed++;
 		}
 
 		return armed;
+	}
+
+	private static Visual find(ServerLevel level, BlockPos centre) {
+		for (Visual visual : ACTIVE) {
+			if (visual.level == level && visual.centre.equals(centre)) {
+				return visual;
+			}
+		}
+
+		return null;
 	}
 
 	public static boolean isActive() {

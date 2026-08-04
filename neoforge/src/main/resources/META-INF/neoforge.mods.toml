@@ -7,6 +7,7 @@ modId="mobconduit"
 version="${version}"
 displayName="Mob Conduit"
 authors="gregj"
+logoFile="assets/mob-conduit/icon.png"
 description='''
 A player-built multiblock that suppresses natural hostile spawning in a radius, built entirely from vanilla blocks. Server-side only; vanilla clients connect unmodified.
 '''
