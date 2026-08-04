@@ -21,8 +21,23 @@ import java.util.List;
  */
 public final class RadiusVisualizer {
 	private static final int DURATION_TICKS = 200;
-	private static final int BAND_INTERVAL_TICKS = 5;
-	private static final int POINTS_PER_BAND = 40;
+	private static final int BAND_INTERVAL_TICKS = 10;
+
+	/**
+	 * Roughly one particle every {@value} blocks along a circle, rather than a fixed count. A
+	 * flat 40 points put a speck every 20 blocks at the default 128 radius, which reads as
+	 * nothing at all from the middle.
+	 */
+	private static final double BLOCKS_PER_POINT = 4.0;
+
+	private static final int MIN_POINTS = 40;
+	private static final int MAX_POINTS = 200;
+
+	/** Points to draw a circle of this radius with roughly even, visible spacing. */
+	private static int pointsFor(double radius) {
+		int points = (int) Math.round(2.0 * Math.PI * radius / BLOCKS_PER_POINT);
+		return Math.max(MIN_POINTS, Math.min(MAX_POINTS, points));
+	}
 
 	private static final class Visual {
 		private final World world;
@@ -135,19 +150,27 @@ public final class RadiusVisualizer {
 			return;
 		}
 
-		// Rotate through the planes (0 = xz, 1 = xy, 2 = yz) as the countdown runs down.
-		int plane = (visual.ticksLeft / BAND_INTERVAL_TICKS) % 3;
+		// All three great circles every band, so the volume reads as a sphere straight away.
+		// Rotating one plane per band meant the horizontal ring — the one a builder actually
+		// wants — was only on screen a third of the time.
+		int points = pointsFor(r);
 
-		for (int i = 0; i < POINTS_PER_BAND; i++) {
-			double angle = i * (Math.PI * 2.0 / POINTS_PER_BAND);
+		for (int i = 0; i < points; i++) {
+			double angle = i * (Math.PI * 2.0 / points);
 			double a = Math.cos(angle) * r;
 			double b = Math.sin(angle) * r;
-			double x = plane == 2 ? cx : cx + a;
-			double y = plane == 0 ? cy : cy + b;
-			double z = plane == 0 ? cz + a : (plane == 1 ? cz : cz + b);
 
-			world.spawnParticle(Particle.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0, null, true);
+			// Each circle must vary two different axes. Driving two axes from the same term
+			// collapses the ring into a diagonal line through the centre, which is what the
+			// xz and yz planes used to do.
+			emit(world, cx + a, cy, cz + b);  // horizontal, xz
+			emit(world, cx + a, cy + b, cz);  // vertical, xy
+			emit(world, cx, cy + a, cz + b);  // vertical, yz
 		}
+	}
+
+	private static void emit(World world, double x, double y, double z) {
+		world.spawnParticle(Particle.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0, null, true);
 	}
 
 	/**
@@ -162,12 +185,12 @@ public final class RadiusVisualizer {
 		double topY = Math.max(minY, Math.min(maxY, cy + r));
 		double bottomY = Math.max(minY, Math.min(maxY, cy - r));
 
+		int points = pointsFor(r);
+
 		for (double ringY : new double[] {midY, topY, bottomY}) {
-			for (int i = 0; i < POINTS_PER_BAND; i++) {
-				double angle = i * (Math.PI * 2.0 / POINTS_PER_BAND);
-				world.spawnParticle(Particle.GLOW,
-						cx + Math.cos(angle) * r, ringY, cz + Math.sin(angle) * r,
-						0, 0.0, 0.0, 0.0, 1.0, null, true);
+			for (int i = 0; i < points; i++) {
+				double angle = i * (Math.PI * 2.0 / points);
+				emit(world, cx + Math.cos(angle) * r, ringY, cz + Math.sin(angle) * r);
 			}
 		}
 
@@ -177,7 +200,7 @@ public final class RadiusVisualizer {
 			double z = cz + Math.sin(angle) * r;
 
 			for (double y = bottomY; y <= topY; y += 8.0) {
-				world.spawnParticle(Particle.GLOW, x, y, z, 0, 0.0, 0.0, 0.0, 1.0, null, true);
+				emit(world, x, y, z);
 			}
 		}
 	}
