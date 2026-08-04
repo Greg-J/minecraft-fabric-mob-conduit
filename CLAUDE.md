@@ -237,6 +237,9 @@ classpath.
   player-triggered, persistent, and tamed.
 - A light block fading in a chunk that is already unloaded when the server stops is saved with
   the chunk and never cleared. Every other stranding path is handled.
+- A conduit deactivates when its own chunk unloads, but its radius can still cover chunks that
+  are loaded and ticking. A player ~200 blocks out leaves roughly a 72-160 block band
+  unsuppressed until they return. Self-healing: re-activation re-arms and re-sweeps.
 
 ---
 
@@ -330,9 +333,22 @@ release artifact). The `-dev` and `-sources` jars are build artifacts, not relea
 
 **In-game verification:** the dev servers run with RCON on (`rcon.password=mobconduit`,
 port 25575) and `pause-when-empty-seconds=0` (26.2 pauses empty dedicated servers; without
-this nothing ticks and every test looks broken). `tools/rcon.py "<command>" [port]` drives
-them: `/mobconduit build 0 100 0` plus `execute if block/entity` queries cover activation,
-hologram, deactivation, sweeps and config paths headlessly.
+this nothing ticks and every test looks broken). `tools/rcon.py "<command>" [port]` sends one
+command; `tools/rcon-battery.py` is the checked-in state battery:
+
+```
+python3 tools/rcon-battery.py phase1 --port 25575          # build, assert, stop
+python3 tools/rcon-battery.py check-persistence --store <conduits.dat|world json>
+python3 tools/rcon-battery.py null-config --config <mob-conduit.json>
+<restart>  python3 tools/rcon-battery.py phase2 --port 25575
+```
+
+It asserts **state** — activation, radius, base-block swap, hologram dedup, config round-trips,
+and survival across a clean restart — on Fabric, NeoForge and Paper alike. It deliberately
+asserts nothing about spawn suppression rates: natural spawning is player-driven and barely
+runs with nobody online, so a headless verdict there would mislead. Those tests are Greg's.
+Note it issues `forceload add 0 0` first, because with no player online the build chunk
+unloads immediately and every check fails with "That position is not loaded".
 
 ## Layout
 
