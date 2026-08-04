@@ -339,6 +339,7 @@ public final class ModConfig {
 	 * default.
 	 */
 	private void validate() {
+		restoreNulledDefaults();
 		this.resolvedFrameBlock = resolveBlock(this.frameBlock);
 
 		if (this.resolvedFrameBlock == Material.NETHERITE_BLOCK) {
@@ -379,6 +380,70 @@ public final class ModConfig {
 		this.resolvedSuppressionFeedback = resolveEnum(this.suppressionFeedback, FeedbackMode.class, "suppression_feedback", FeedbackMode.OFF);
 		this.resolvedRadiusShape = resolveEnum(this.radiusShape, RadiusShape.class, "radius_shape", RadiusShape.SPHERE);
 		this.resolvedDisabledDimensions = resolveDimensions(this.disabledDimensions);
+	}
+
+	/**
+	 * Puts back any field the file explicitly set to JSON null.
+	 *
+	 * <p>Gson writes an explicit null straight onto the field, and {@code toJsonTree} then omits
+	 * the key entirely — which makes it unreachable from {@link #keys()}, {@link #describe} and
+	 * {@link #set}, so {@code /mobconduit set suppression_feedback actionbar} answered "Unknown
+	 * setting" and the key vanished from the file on the next save. Restoring the declared
+	 * defaults first keeps every key round-tripping. Mirrors the Fabric mod's ModConfig.
+	 */
+	private void restoreNulledDefaults() {
+		if (this.frameBlock == null) {
+			this.frameBlock = "minecraft:netherite_block";
+		}
+
+		if (this.suppressionFeedback == null) {
+			this.suppressionFeedback = "actionbar";
+		}
+
+		if (this.radiusShape == null) {
+			this.radiusShape = "sphere";
+		}
+
+		if (this.removalExemptTypes == null) {
+			this.removalExemptTypes = List.of(
+					"minecraft:wither", "minecraft:ender_dragon", "minecraft:warden", "minecraft:elder_guardian");
+		}
+
+		if (this.suppressExemptTypes == null) {
+			this.suppressExemptTypes = List.of();
+		}
+
+		if (this.disabledDimensions == null) {
+			this.disabledDimensions = List.of();
+		}
+
+		if (this.crystalAuraParticle == null) {
+			this.crystalAuraParticle = "minecraft:trial_spawner_detection_ominous";
+		}
+
+		if (this.killPlumeParticle == null) {
+			this.killPlumeParticle = "minecraft:sculk_soul";
+		}
+
+		if (this.killBeamParticle == null) {
+			this.killBeamParticle = "minecraft:sonic_boom";
+		}
+
+		if (this.frameDripParticle == null) {
+			this.frameDripParticle = "minecraft:dripping_obsidian_tear";
+		}
+
+		if (this.removalParticle == null) {
+			this.removalParticle = "minecraft:soul_fire_flame";
+		}
+
+		if (this.removalSecondaryParticle == null) {
+			this.removalSecondaryParticle = "minecraft:soul";
+		}
+
+		if (this.removalRiserParticle == null) {
+			this.removalRiserParticle = "minecraft:soul_fire_flame";
+		}
 	}
 
 	private static Set<EntityType> resolveTypeSet(List<String> names, String key) {
