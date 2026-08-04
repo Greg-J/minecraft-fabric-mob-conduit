@@ -77,7 +77,7 @@ public final class ConduitStore {
 	 */
 	private final List<ConduitPos> pendingDeactivations = new ArrayList<>();
 
-	/** Last game-time each conduit fired suppression feedback; transient, self-cleaning by size. */
+	/** Last game-time each conduit fired suppression feedback; transient, dropped on deactivate. */
 	private final Map<ConduitPos, Long> lastFeedback = new HashMap<>();
 
 	/** Whether the in-memory state has changes not yet written to disk. */
@@ -356,6 +356,7 @@ public final class ConduitStore {
 
 		this.conduits.remove(existing);
 		this.armedThisSession.remove(pos);
+		this.lastFeedback.remove(pos);
 		ConduitSounds.deactivate(world, pos);
 		restoreBase(world, pos);
 		Holograms.remove(world, pos);
@@ -585,15 +586,13 @@ public final class ConduitStore {
 			ConduitPos pos = conduit.pos();
 
 			if (!world.isChunkLoaded(pos.x() >> 4, pos.z() >> 4)) {
-				if (dimDisabled) {
-					// A crystal here can never re-activate, so keeping the entry would park a
-					// suppression zone nothing can see or remove.
-					this.armedThisSession.remove(pos);
-					dropped++;
-					continue;
-				}
-
 				// Cannot read the frame; keep it and let the crystal's next validation decide.
+				// Kept even when the dimension is disabled: the guard short-circuits on the
+				// dimension before it ever consults the store (MobConduitListener.onCreatureSpawn),
+				// so a retained entry suppresses nothing — and keeping it is what lets the
+				// crystal's next validation run the real teardown, restoreBase and
+				// Holograms.remove. Dropping it here left the swapped light block and the
+				// hologram stranded for good, because deactivate then finds no entry.
 				survivors.add(new Conduit(pos, conduit.frameCount()));
 				continue;
 			}

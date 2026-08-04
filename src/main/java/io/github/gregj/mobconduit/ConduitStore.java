@@ -84,7 +84,7 @@ public final class ConduitStore extends SavedData {
 	 */
 	private final List<BlockPos> pendingDeactivations = new ArrayList<>();
 
-	/** Last game-time each conduit fired suppression feedback; transient, self-cleaning by size. */
+	/** Last game-time each conduit fired suppression feedback; transient, dropped on deactivate. */
 	private final Map<BlockPos, Long> lastFeedback = new HashMap<>();
 
 	public ConduitStore() {
@@ -231,6 +231,7 @@ public final class ConduitStore extends SavedData {
 
 		this.conduits.remove(existing);
 		this.armedThisSession.remove(pos);
+		this.lastFeedback.remove(pos);
 		ConduitSounds.deactivate(level, pos);
 		restoreBase(level, pos);
 		Holograms.remove(level, pos);
@@ -449,15 +450,13 @@ public final class ConduitStore extends SavedData {
 			BlockPos pos = conduit.pos();
 
 			if (!level.isLoaded(pos)) {
-				if (dimDisabled) {
-					// A crystal here can never re-activate, so keeping the entry would park a
-					// suppression zone nothing can see or remove.
-					this.armedThisSession.remove(pos);
-					dropped++;
-					continue;
-				}
-
-				// Cannot read the frame; keep it and let the crystal's next tick decide.
+				// Cannot read the frame; keep it and let the crystal's next tick decide. Kept even
+				// when the dimension is disabled: the guard short-circuits on the dimension before
+				// it ever consults the store (MobConduit.allowSpawn), so a retained entry
+				// suppresses nothing — and keeping it is what lets the crystal's next validation
+				// run the real teardown, restoreBase and Holograms.remove. Dropping it here left
+				// the swapped light block and the hologram stranded for good, because deactivate
+				// then finds no entry and returns early.
 				survivors.add(new Conduit(pos, conduit.frameCount()));
 				continue;
 			}
@@ -510,6 +509,14 @@ public final class ConduitStore extends SavedData {
 	/**
 	 * Levels are dropped wholesale on shutdown. Keeps the global counter honest and, critically,
 	 * returns every in-flight light block to air so a stop mid-fade leaves nothing behind.
+	 *
+	 * <p>Deliberately does <em>not</em> clear {@link #conduits}. This runs from SERVER_STOPPING,
+	 * which Fabric fires at the head of {@code MinecraftServer.stopServer}
+	 * ({@code MinecraftServer.java:644}) — before that method's shutdown save at {@code :678}.
+	 * The save encodes every cached SavedData whose dirty flag is set
+	 * ({@code SavedDataStorage.java:185}), so emptying the list here wrote {@code conduits: []}
+	 * over the real state on every session that had touched a conduit since the last autosave.
+	 * The index still goes, so nothing consults stale coverage during teardown.
 	 */
 	public void forget(ServerLevel level) {
 		// Put every swapped base back before the level goes away, so a stop while active does
@@ -522,7 +529,6 @@ public final class ConduitStore extends SavedData {
 		this.countedInGlobal = 0;
 		this.armedThisSession.clear();
 		this.pendingDeactivations.clear();
-		this.conduits.clear();
 		this.byChunk.clear();
 		this.effects.clearAll(level);
 		syncEffectsFlag();
